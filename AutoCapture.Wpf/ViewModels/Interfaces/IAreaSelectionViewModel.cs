@@ -1,0 +1,16 @@
+﻿using System.Windows.Input;
+
+namespace AutoCapture.Wpf.ViewModels.Interfaces
+{
+    public interface IAreaSelectionViewModel
+    {
+        int X { get; }
+        int Y { get; }
+        int Width { get; }
+        int Height { get; }
+        bool HasSelection { get; }
+        
+        ICommand SelectAreaCommand { get; }
+        ICommand ClearSelectionCommand { get; }
+    }
+}
