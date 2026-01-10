@@ -4,6 +4,8 @@ using System;
 using System.Windows;
 using AutoCapture.Wpf.ViewModels;
 using AutoCapture.Wpf.ViewModels.Interfaces;
+using AutoCapture.Wpf.Services.Interfaces;
+using AutoCapture.Wpf.Services.Implementations;
 
 namespace AutoCapture.Wpf
 {
@@ -46,11 +48,11 @@ namespace AutoCapture.Wpf
             services.AddSingleton<IMainViewModel, MainWindowViewModel>();
             services.AddSingleton<MainWindowViewModel>();
 
-            // Services 등록 (추후 추가)
-            // services.AddSingleton<IScreenCaptureService, ScreenCaptureService>();
-            // services.AddSingleton<IInputService, InputService>();
-            // services.AddSingleton<IHotkeyService, HotkeyService>();
-            // services.AddSingleton<IMacroEngine, MacroEngine>();
+            // Services 등록
+            services.AddSingleton<IScreenCaptureService, ScreenCaptureService>();
+            services.AddSingleton<IInputService, InputService>();
+            services.AddSingleton<IHotkeyService, HotkeyService>();
+            services.AddSingleton<IMacroEngine, MacroEngine>();
         }
 
         protected override void OnExit(ExitEventArgs e)
