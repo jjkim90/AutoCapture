@@ -1,7 +1,6 @@
 ﻿using AutoCapture.Wpf.Services.Interfaces;
 using Serilog;
 using WindowsInput;
-using WindowsInput.Native;
 
 namespace AutoCapture.Wpf.Services.Implementations
 {
