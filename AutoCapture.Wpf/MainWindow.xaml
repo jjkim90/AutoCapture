@@ -4,9 +4,273 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AutoCapture.Wpf"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="AutoCapture - 화면 캡처 자동화" 
+        Height="700" Width="600"
+        ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        Background="{DynamicResource MaterialDesignPaper}"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+    
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
+        <!-- Header -->
+        <materialDesign:ColorZone Grid.Row="0" 
+                                  Mode="PrimaryMid" 
+                                  Padding="16"
+                                  materialDesign:ElevationAssist.Elevation="Dp4">
+            <TextBlock Text="AutoCapture" 
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                       HorizontalAlignment="Center"/>
+        </materialDesign:ColorZone>
+
+        <!-- Main Content -->
+        <ScrollViewer Grid.Row="1" 
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="16">
+                
+                <!-- 캡처 영역 설정 섹션 -->
+                <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="캡처 영역" 
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Margin="0,0,0,16"/>
+                        
+                        <Grid DataContext="{Binding AreaSelection}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- 영역 정보 표시 -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" 
+                                       Text="위치:" 
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,8"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" 
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,0,8">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="X: {0}, Y: {1}">
+                                        <Binding Path="CaptureArea.X"/>
+                                        <Binding Path="CaptureArea.Y"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" 
+                                       Text="크기:" 
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,16"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" 
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,0,16">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="너비: {0}, 높이: {1}">
+                                        <Binding Path="CaptureArea.Width"/>
+                                        <Binding Path="CaptureArea.Height"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+
+                            <!-- 영역 선택 버튼 -->
+                            <Button Grid.Row="2" Grid.ColumnSpan="2"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    Command="{Binding SelectAreaCommand}"
+                                    HorizontalAlignment="Center"
+                                    materialDesign:ButtonAssist.CornerRadius="20">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="SelectionDrag" 
+                                                             VerticalAlignment="Center" 
+                                                             Margin="0,0,8,0"/>
+                                    <TextBlock Text="영역 선택" 
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <!-- 캡처 설정 섹션 -->
+                <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                    <StackPanel DataContext="{Binding CaptureSettings}">
+                        <TextBlock Text="캡처 설정" 
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Margin="0,0,0,16"/>
+
+                        <!-- 캡처 횟수 -->
+                        <TextBlock Text="캡처 횟수" 
+                                   Style="{StaticResource MaterialDesignBody2TextBlock}"
+                                   Margin="0,0,0,8"/>
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" 
+                                    Value="{Binding CaptureCount}" 
+                                    Minimum="1" 
+                                    Maximum="100"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1" 
+                                     Text="{Binding CaptureCount}"
+                                     materialDesign:HintAssist.Hint="횟수"
+                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
+                        </Grid>
+
+                        <!-- 기준 간격 -->
+                        <TextBlock Text="기준 간격 (초)" 
+                                   Style="{StaticResource MaterialDesignBody2TextBlock}"
+                                   Margin="0,0,0,8"/>
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" 
+                                    Value="{Binding IntervalSeconds}" 
+                                    Minimum="1" 
+                                    Maximum="60"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1" 
+                                     Text="{Binding IntervalSeconds}"
+                                     materialDesign:HintAssist.Hint="초"
+                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
+                        </Grid>
+
+                        <!-- 저장 폴더 -->
+                        <TextBlock Text="저장 폴더" 
+                                   Style="{StaticResource MaterialDesignBody2TextBlock}"
+                                   Margin="0,0,0,8"/>
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" 
+                                     Text="{Binding SaveFolder}"
+                                     materialDesign:HintAssist.Hint="저장 경로"
+                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                     IsReadOnly="True"
+                                     Margin="0,0,8,0"/>
+                            <Button Grid.Column="1" 
+                                    Content="폴더 선택"
+                                    Style="{StaticResource MaterialDesignFlatButton}"
+                                    Command="{Binding SelectFolderCommand}"/>
+                        </Grid>
+
+                        <!-- 자동 입력 키 -->
+                        <TextBox Text="{Binding AutoInputKey}"
+                                 materialDesign:HintAssist.Hint="자동 입력 키 (예: space, enter)"
+                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                 Margin="0,0,0,16"/>
+
+                        <!-- PDF 저장 옵션 -->
+                        <CheckBox Content="캡처 완료 후 PDF로 저장"
+                                  IsChecked="{Binding SaveAsPdf}"
+                                  Style="{StaticResource MaterialDesignCheckBox}"/>
+                    </StackPanel>
+                </materialDesign:Card>
+
+                <!-- 매크로 제어 섹션 -->
+                <materialDesign:Card Padding="16">
+                    <StackPanel DataContext="{Binding MacroControl}">
+                        <TextBlock Text="매크로 제어" 
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Margin="0,0,0,16"/>
+
+                        <!-- 상태 표시 -->
+                        <TextBlock Text="현재 상태:" 
+                                   Style="{StaticResource MaterialDesignBody2TextBlock}"/>
+                        <TextBlock Text="{Binding State.Status}" 
+                                   Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                                   FontWeight="Bold"
+                                   Foreground="Gray"
+                                   Margin="0,0,0,16"/>
+
+                        <!-- 진행률 -->
+                        <ProgressBar Value="{Binding State.CurrentCount}" 
+                                     Maximum="{Binding State.TotalCount}"
+                                     Margin="0,0,0,8"/>
+                        <TextBlock HorizontalAlignment="Center" 
+                                   Margin="0,0,0,16">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="{}{0} / {1} 완료">
+                                    <Binding Path="State.CurrentCount"/>
+                                    <Binding Path="State.TotalCount"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+
+                        <!-- 제어 버튼 -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <Button Grid.Column="0" 
+                                    Style="{StaticResource MaterialDesignFloatingActionButton}"
+                                    Command="{Binding StartCommand}"
+                                    ToolTip="시작 (F7)"
+                                    Margin="0,0,8,0"
+                                    HorizontalAlignment="Right">
+                                <materialDesign:PackIcon Kind="Play" 
+                                                         Height="24" 
+                                                         Width="24"/>
+                            </Button>
+                            
+                            <Button Grid.Column="1" 
+                                    Style="{StaticResource MaterialDesignFloatingActionButton}"
+                                    Command="{Binding StopCommand}"
+                                    ToolTip="중지 (F8)"
+                                    Margin="8,0,0,0"
+                                    HorizontalAlignment="Left">
+                                <materialDesign:PackIcon Kind="Stop" 
+                                                         Height="24" 
+                                                         Width="24"/>
+                            </Button>
+                        </Grid>
+
+                        <!-- 단축키 안내 -->
+                        <TextBlock Text="단축키: F7 - 시작, F8 - 중지" 
+                                   Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,16,0,0"
+                                   Foreground="{StaticResource MaterialDesignBodyLight}"/>
+                    </StackPanel>
+                </materialDesign:Card>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Status Bar -->
+        <materialDesign:ColorZone Grid.Row="2" 
+                                  Mode="PrimaryDark" 
+                                  Padding="8">
+            <TextBlock Text="준비됨" 
+                       HorizontalAlignment="Center"
+                       Style="{StaticResource MaterialDesignBody2TextBlock}"/>
+        </materialDesign:ColorZone>
     </Grid>
 </Window>
