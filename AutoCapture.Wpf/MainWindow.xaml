@@ -69,8 +69,8 @@
                                        Margin="0,0,0,8">
                                 <TextBlock.Text>
                                     <MultiBinding StringFormat="X: {0}, Y: {1}">
-                                        <Binding Path="CaptureArea.X"/>
-                                        <Binding Path="CaptureArea.Y"/>
+                                        <Binding Path="X"/>
+                                        <Binding Path="Y"/>
                                     </MultiBinding>
                                 </TextBlock.Text>
                             </TextBlock>
@@ -84,8 +84,8 @@
                                        Margin="0,0,0,16">
                                 <TextBlock.Text>
                                     <MultiBinding StringFormat="너비: {0}, 높이: {1}">
-                                        <Binding Path="CaptureArea.Width"/>
-                                        <Binding Path="CaptureArea.Height"/>
+                                        <Binding Path="Width"/>
+                                        <Binding Path="Height"/>
                                     </MultiBinding>
                                 </TextBlock.Text>
                             </TextBlock>

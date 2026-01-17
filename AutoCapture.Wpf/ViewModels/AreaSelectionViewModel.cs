@@ -37,18 +37,34 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 _logger.Information("화면 영역 선택 시작");
                 
-                // TODO: 실제 화면 선택 UI 구현
-                await Task.Delay(100);
-                
-                // 임시로 하드코딩된 값 설정
-                CaptureArea = new CaptureArea(100, 100, 800, 600);
-                
-                _logger.Information("화면 영역 선택 완료: {Area}", CaptureArea);
-                OnPropertyChanged(nameof(X));
-                OnPropertyChanged(nameof(Y));
-                OnPropertyChanged(nameof(Width));
-                OnPropertyChanged(nameof(Height));
-                OnPropertyChanged(nameof(HasSelection));
+                // UI 스레드에서 실행
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    var selectionWindow = new Views.AreaSelectionWindow();
+                    selectionWindow.ShowDialog();
+                    
+                    if (selectionWindow.IsSelectionConfirmed)
+                    {
+                        var rect = selectionWindow.SelectedArea;
+                        CaptureArea = new CaptureArea(
+                            (int)rect.X,
+                            (int)rect.Y,
+                            (int)rect.Width,
+                            (int)rect.Height
+                        );
+                        
+                        _logger.Information("화면 영역 선택 완료: {Area}", CaptureArea);
+                        OnPropertyChanged(nameof(X));
+                        OnPropertyChanged(nameof(Y));
+                        OnPropertyChanged(nameof(Width));
+                        OnPropertyChanged(nameof(Height));
+                        OnPropertyChanged(nameof(HasSelection));
+                    }
+                    else
+                    {
+                        _logger.Information("화면 영역 선택 취소됨");
+                    }
+                });
             }
             catch (Exception ex)
             {
