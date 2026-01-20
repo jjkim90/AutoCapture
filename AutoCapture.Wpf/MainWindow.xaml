@@ -169,7 +169,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0" 
-                                     Text="{Binding SaveFolder}"
+                                     Text="{Binding SaveFolderPath}"
                                      materialDesign:HintAssist.Hint="저장 경로"
                                      Style="{StaticResource MaterialDesignFloatingHintTextBox}"
                                      IsReadOnly="True"
@@ -203,22 +203,22 @@
                         <!-- 상태 표시 -->
                         <TextBlock Text="현재 상태:" 
                                    Style="{StaticResource MaterialDesignBody2TextBlock}"/>
-                        <TextBlock Text="{Binding State.Status}" 
+                        <TextBlock Text="{Binding StatusMessage}" 
                                    Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                                    FontWeight="Bold"
                                    Foreground="Gray"
                                    Margin="0,0,0,16"/>
 
                         <!-- 진행률 -->
-                        <ProgressBar Value="{Binding State.CurrentCount}" 
-                                     Maximum="{Binding State.TotalCount}"
+                        <ProgressBar Value="{Binding CurrentCaptureCount, Mode=OneWay}" 
+                                     Maximum="{Binding MacroState.TotalCaptureCount, Mode=OneWay}"
                                      Margin="0,0,0,8"/>
                         <TextBlock HorizontalAlignment="Center" 
                                    Margin="0,0,0,16">
                             <TextBlock.Text>
                                 <MultiBinding StringFormat="{}{0} / {1} 완료">
-                                    <Binding Path="State.CurrentCount"/>
-                                    <Binding Path="State.TotalCount"/>
+                                    <Binding Path="CurrentCaptureCount"/>
+                                    <Binding Path="MacroState.TotalCaptureCount"/>
                                 </MultiBinding>
                             </TextBlock.Text>
                         </TextBlock>
@@ -232,7 +232,7 @@
                             
                             <Button Grid.Column="0" 
                                     Style="{StaticResource MaterialDesignFloatingActionButton}"
-                                    Command="{Binding StartCommand}"
+                                    Command="{Binding StartMacroCommand}"
                                     ToolTip="시작 (F7)"
                                     Margin="0,0,8,0"
                                     HorizontalAlignment="Right">
@@ -243,7 +243,7 @@
                             
                             <Button Grid.Column="1" 
                                     Style="{StaticResource MaterialDesignFloatingActionButton}"
-                                    Command="{Binding StopCommand}"
+                                    Command="{Binding StopMacroCommand}"
                                     ToolTip="중지 (F8)"
                                     Margin="8,0,0,0"
                                     HorizontalAlignment="Left">

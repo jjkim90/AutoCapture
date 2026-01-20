@@ -1,6 +1,7 @@
 ﻿using AutoCapture.Wpf.Models;
 using AutoCapture.Wpf.ViewModels.Base;
 using AutoCapture.Wpf.ViewModels.Interfaces;
+using AutoCapture.Wpf.Services.Interfaces;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
@@ -13,6 +14,8 @@ namespace AutoCapture.Wpf.ViewModels
         private readonly ILogger _logger;
         private readonly ICaptureSettingsViewModel _captureSettings;
         private readonly IAreaSelectionViewModel _areaSelection;
+        private readonly IMacroEngine _macroEngine;
+        private CancellationTokenSource? _cancellationTokenSource;
         
         [ObservableProperty]
         private MacroState _macroState = new();
@@ -29,14 +32,21 @@ namespace AutoCapture.Wpf.ViewModels
         public MacroControlViewModel(
             ILogger logger,
             ICaptureSettingsViewModel captureSettings,
-            IAreaSelectionViewModel areaSelection)
+            IAreaSelectionViewModel areaSelection,
+            IMacroEngine macroEngine)
         {
             _logger = logger;
             _captureSettings = captureSettings;
             _areaSelection = areaSelection;
+            _macroEngine = macroEngine;
             
             StartMacroCommand = new AsyncRelayCommand(StartMacroAsync, CanStartMacro);
             StopMacroCommand = new AsyncRelayCommand(StopMacroAsync, CanStopMacro);
+            
+            // MacroEngine 이벤트 구독
+            _macroEngine.ProgressChanged += OnMacroProgressChanged;
+            _macroEngine.Completed += OnMacroCompleted;
+            _macroEngine.Error += OnMacroError;
         }
 
         private bool CanStartMacro()
@@ -64,15 +74,38 @@ namespace AutoCapture.Wpf.ViewModels
                 StatusMessage = "매크로 실행 중...";
                 OnPropertyChanged(nameof(IsRunning));
                 
-                // TODO: 실제 매크로 엔진 구현
-                await Task.Delay(1000);
+                // 캡처 설정 가져오기
+                var settings = new Models.CaptureSettings
+                {
+                    CaptureCount = _captureSettings.CaptureCount,
+                    IntervalSeconds = _captureSettings.IntervalSeconds,
+                    SaveFolderPath = _captureSettings.SaveFolderPath,
+                    AutoInputKey = _captureSettings.AutoInputKey,
+                    SaveAsPdf = _captureSettings.SaveAsPdf
+                };
                 
-                StatusMessage = "매크로 완료";
-                MacroState.Status = MacroStatus.Completed;
-                MacroState.EndTime = DateTime.Now;
+                // 캡처 영역 가져오기
+                var captureArea = new Models.CaptureArea(
+                    _areaSelection.X,
+                    _areaSelection.Y,
+                    _areaSelection.Width,
+                    _areaSelection.Height
+                );
                 
-                _logger.Information("매크로 완료. 캡처 수: {Count}, 소요 시간: {Time}", 
-                    MacroState.CurrentCaptureCount, MacroState.ElapsedTime);
+                // CancellationToken 생성
+                _cancellationTokenSource = new CancellationTokenSource();
+                
+                // 매크로 엔진 실행
+                await _macroEngine.StartAsync(
+                    settings, 
+                    captureArea, 
+                    _cancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Information("매크로가 취소되었습니다.");
+                StatusMessage = "매크로 취소됨";
+                MacroState.Status = MacroStatus.Idle;
             }
             catch (Exception ex)
             {
@@ -83,6 +116,10 @@ namespace AutoCapture.Wpf.ViewModels
             }
             finally
             {
+                MacroState.EndTime = DateTime.Now;
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
+                
                 OnPropertyChanged(nameof(IsRunning));
                 OnPropertyChanged(nameof(CurrentCaptureCount));
                 ((IRelayCommand)StartMacroCommand).NotifyCanExecuteChanged();
@@ -98,8 +135,9 @@ namespace AutoCapture.Wpf.ViewModels
                 MacroState.Status = MacroStatus.Stopping;
                 StatusMessage = "매크로 중지 중...";
                 
-                // TODO: 실제 중지 로직 구현
-                await Task.Delay(500);
+                // 매크로 엔진 중지
+                _cancellationTokenSource?.Cancel();
+                await _macroEngine.StopAsync();
                 
                 MacroState.Status = MacroStatus.Idle;
                 MacroState.EndTime = DateTime.Now;
@@ -125,6 +163,39 @@ namespace AutoCapture.Wpf.ViewModels
             MacroState.CurrentCaptureCount = currentCount;
             OnPropertyChanged(nameof(CurrentCaptureCount));
             StatusMessage = $"캡처 진행 중: {currentCount}/{MacroState.TotalCaptureCount}";
+        }
+        
+        private void OnMacroProgressChanged(object? sender, MacroProgressEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                UpdateProgress(e.CurrentCount);
+            });
+        }
+        
+        private void OnMacroCompleted(object? sender, MacroCompletedEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                MacroState.Status = MacroStatus.Completed;
+                MacroState.EndTime = DateTime.Now;
+                StatusMessage = $"매크로 완료 - 캡처: {e.TotalCaptured}개, 소요시간: {e.ElapsedTime:mm\\:ss}";
+                
+                _logger.Information("매크로 완료. 캡처 수: {Count}, 소요 시간: {Time}", 
+                    e.TotalCaptured, e.ElapsedTime);
+            });
+        }
+        
+        private void OnMacroError(object? sender, MacroErrorEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                MacroState.Status = MacroStatus.Error;
+                MacroState.LastError = e.Exception.Message;
+                StatusMessage = $"오류: {e.Message}";
+                
+                _logger.Error(e.Exception, "매크로 오류: {Message}", e.Message);
+            });
         }
     }
 }

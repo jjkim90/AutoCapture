@@ -2,6 +2,7 @@
 using Serilog;
 using System;
 using System.Windows;
+using System.Windows.Input;
 using AutoCapture.Wpf.ViewModels;
 using AutoCapture.Wpf.ViewModels.Interfaces;
 using AutoCapture.Wpf.Services.Interfaces;
@@ -24,6 +25,9 @@ namespace AutoCapture.Wpf
 
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
             mainWindow.Show();
+            
+            // 전역 단축키 등록
+            RegisterGlobalHotkeys();
 
             base.OnStartup(e);
         }
@@ -57,9 +61,52 @@ namespace AutoCapture.Wpf
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // 전역 단축키 해제
+            var hotkeyService = _serviceProvider?.GetService<IHotkeyService>();
+            hotkeyService?.UnregisterAll();
+            
             Log.CloseAndFlush();
             _serviceProvider?.Dispose();
             base.OnExit(e);
+        }
+        
+        private void RegisterGlobalHotkeys()
+        {
+            var hotkeyService = _serviceProvider?.GetRequiredService<IHotkeyService>();
+            var macroControl = _serviceProvider?.GetRequiredService<IMacroControlViewModel>();
+            var logger = _serviceProvider?.GetRequiredService<ILogger>();
+            
+            if (hotkeyService == null || macroControl == null || logger == null)
+            {
+                logger?.Warning("단축키 등록 실패: 필요한 서비스를 찾을 수 없습니다.");
+                return;
+            }
+            
+            // F7: 매크로 시작
+            if (hotkeyService.RegisterHotkey(Key.F7, ModifierKeys.None, () =>
+            {
+                logger.Information("F7 단축키 눌림");
+                if (macroControl.StartMacroCommand.CanExecute(null))
+                {
+                    macroControl.StartMacroCommand.Execute(null);
+                }
+            }))
+            {
+                logger.Information("F7 단축키 등록 성공");
+            }
+            
+            // F8: 매크로 중지
+            if (hotkeyService.RegisterHotkey(Key.F8, ModifierKeys.None, () =>
+            {
+                logger.Information("F8 단축키 눌림");
+                if (macroControl.StopMacroCommand.CanExecute(null))
+                {
+                    macroControl.StopMacroCommand.Execute(null);
+                }
+            }))
+            {
+                logger.Information("F8 단축키 등록 성공");
+            }
         }
     }
 }
