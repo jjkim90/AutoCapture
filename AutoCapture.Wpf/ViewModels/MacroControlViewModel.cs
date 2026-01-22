@@ -74,6 +74,17 @@ namespace AutoCapture.Wpf.ViewModels
                 StatusMessage = "매크로 실행 중...";
                 OnPropertyChanged(nameof(IsRunning));
                 
+                // 메인 윈도우 최소화
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var mainWindow = System.Windows.Application.Current.MainWindow;
+                    if (mainWindow != null && mainWindow.WindowState != System.Windows.WindowState.Minimized)
+                    {
+                        mainWindow.WindowState = System.Windows.WindowState.Minimized;
+                        _logger.Information("매크로 시작 - 메인 윈도우 최소화");
+                    }
+                });
+                
                 // 캡처 설정 가져오기
                 var settings = new Models.CaptureSettings
                 {
@@ -180,6 +191,15 @@ namespace AutoCapture.Wpf.ViewModels
                 MacroState.Status = MacroStatus.Completed;
                 MacroState.EndTime = DateTime.Now;
                 StatusMessage = $"매크로 완료 - 캡처: {e.TotalCaptured}개, 소요시간: {e.ElapsedTime:mm\\:ss}";
+                
+                // 메인 윈도우 복원 (선택사항)
+                var mainWindow = System.Windows.Application.Current.MainWindow;
+                if (mainWindow != null && mainWindow.WindowState == System.Windows.WindowState.Minimized)
+                {
+                    mainWindow.WindowState = System.Windows.WindowState.Normal;
+                    mainWindow.Activate();
+                    _logger.Information("매크로 완료 - 메인 윈도우 복원");
+                }
                 
                 _logger.Information("매크로 완료. 캡처 수: {Count}, 소요 시간: {Time}", 
                     e.TotalCaptured, e.ElapsedTime);
