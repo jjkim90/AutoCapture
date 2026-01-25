@@ -40,6 +40,22 @@ namespace AutoCapture.Wpf.ViewModels
                 // UI 스레드에서 실행
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
+                    // 메인 윈도우 최소화
+                    var mainWindow = System.Windows.Application.Current.MainWindow;
+                    var wasMinimized = false;
+                    if (mainWindow != null && mainWindow.WindowState != System.Windows.WindowState.Minimized)
+                    {
+                        mainWindow.WindowState = System.Windows.WindowState.Minimized;
+                        wasMinimized = true;
+                        _logger.Information("영역 선택을 위해 메인 윈도우 최소화");
+                        
+                        // 최소화 애니메이션이 완료되도록 잠시 대기
+                        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
+                            System.Windows.Threading.DispatcherPriority.Background,
+                            new Action(delegate { })
+                        );
+                    }
+                    
                     var selectionWindow = new Views.AreaSelectionWindow();
                     selectionWindow.ShowDialog();
                     
@@ -63,6 +79,14 @@ namespace AutoCapture.Wpf.ViewModels
                     else
                     {
                         _logger.Information("화면 영역 선택 취소됨");
+                    }
+                    
+                    // 메인 윈도우 복원
+                    if (wasMinimized && mainWindow != null)
+                    {
+                        mainWindow.WindowState = System.Windows.WindowState.Normal;
+                        mainWindow.Activate();
+                        _logger.Information("영역 선택 완료 - 메인 윈도우 복원");
                     }
                 });
             }
