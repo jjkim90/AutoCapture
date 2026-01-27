@@ -1,8 +1,9 @@
-﻿using System.Windows.Input;
+﻿using System.ComponentModel;
+using System.Windows.Input;
 
 namespace AutoCapture.Wpf.ViewModels.Interfaces
 {
-    public interface IAreaSelectionViewModel
+    public interface IAreaSelectionViewModel : INotifyPropertyChanged
     {
         int X { get; }
         int Y { get; }

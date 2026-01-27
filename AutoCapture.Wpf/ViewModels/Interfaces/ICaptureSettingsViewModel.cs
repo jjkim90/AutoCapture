@@ -1,8 +1,9 @@
-﻿using System.Windows.Input;
+﻿using System.ComponentModel;
+using System.Windows.Input;
 
 namespace AutoCapture.Wpf.ViewModels.Interfaces
 {
-    public interface ICaptureSettingsViewModel
+    public interface ICaptureSettingsViewModel : INotifyPropertyChanged
     {
         int CaptureCount { get; set; }
         int IntervalSeconds { get; set; }

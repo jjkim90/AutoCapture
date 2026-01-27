@@ -47,6 +47,10 @@ namespace AutoCapture.Wpf.ViewModels
             _macroEngine.ProgressChanged += OnMacroProgressChanged;
             _macroEngine.Completed += OnMacroCompleted;
             _macroEngine.Error += OnMacroError;
+            
+            // AreaSelection과 CaptureSettings의 변경 사항 구독
+            _areaSelection.PropertyChanged += OnDependencyPropertyChanged;
+            _captureSettings.PropertyChanged += OnDependencyPropertyChanged;
         }
 
         private bool CanStartMacro()
@@ -215,6 +219,16 @@ namespace AutoCapture.Wpf.ViewModels
                 StatusMessage = $"오류: {e.Message}";
                 
                 _logger.Error(e.Exception, "매크로 오류: {Message}", e.Message);
+            });
+        }
+        
+        private void OnDependencyPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // 영역 선택 또는 설정이 변경되면 커맨드 상태 업데이트
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                ((IRelayCommand)StartMacroCommand).NotifyCanExecuteChanged();
+                ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
             });
         }
     }
