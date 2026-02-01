@@ -52,6 +52,11 @@ namespace AutoCapture.Wpf.ViewModels
                 {
                     Settings.SaveFolderPath = value;
                     OnPropertyChanged();
+                    
+                    // 변경된 경로를 Settings에 저장
+                    Properties.Settings.Default.LastSaveFolderPath = value;
+                    Properties.Settings.Default.Save();
+                    _logger.Information("저장 폴더 경로 저장됨: {FolderPath}", value);
                 }
             }
         }
@@ -89,8 +94,17 @@ namespace AutoCapture.Wpf.ViewModels
             _logger = logger;
             SelectFolderCommand = new RelayCommand(SelectFolder);
             
-            // 기본 저장 폴더 설정
-            SaveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "AutoCapture");
+            // 마지막 사용한 저장 폴더 복원
+            var lastPath = Properties.Settings.Default.LastSaveFolderPath;
+            if (!string.IsNullOrWhiteSpace(lastPath) && Directory.Exists(lastPath))
+            {
+                SaveFolderPath = lastPath;
+                _logger.Information("마지막 저장 폴더 복원: {FolderPath}", SaveFolderPath);
+            }
+            else
+            {
+                SaveFolderPath = string.Empty;
+            }
         }
 
         private void SelectFolder()
