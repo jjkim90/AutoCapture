@@ -5,6 +5,7 @@ using AutoCapture.Wpf.Services.Interfaces;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
+using System.Windows;
 using System.Windows.Input;
 
 namespace AutoCapture.Wpf.ViewModels
@@ -205,6 +206,12 @@ namespace AutoCapture.Wpf.ViewModels
                     _logger.Information("매크로 완료 - 메인 윈도우 복원");
                 }
                 
+                // 알림음 재생
+                System.Media.SystemSounds.Exclamation.Play();
+                
+                // Windows 알림 표시
+                ShowCompletionNotification(e.TotalCaptured, e.ElapsedTime);
+                
                 _logger.Information("매크로 완료. 캡처 수: {Count}, 소요 시간: {Time}", 
                     e.TotalCaptured, e.ElapsedTime);
             });
@@ -230,6 +237,23 @@ namespace AutoCapture.Wpf.ViewModels
                 ((IRelayCommand)StartMacroCommand).NotifyCanExecuteChanged();
                 ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
             });
+        }
+        
+        private void ShowCompletionNotification(int totalCaptured, TimeSpan elapsedTime)
+        {
+            try
+            {
+                // 사용자 정의 알림 창 표시
+                var notificationWindow = new Views.NotificationWindow(
+                    $"총 {totalCaptured}개 캡처 완료\n소요시간: {elapsedTime:mm\\:ss}");
+                notificationWindow.Show();
+                    
+                _logger.Information("작업 완료 알림 표시됨");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "알림 표시 중 오류 발생");
+            }
         }
     }
 }
