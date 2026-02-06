@@ -34,5 +34,17 @@ namespace AutoCapture.Wpf.Properties {
                 this["LastSaveFolderPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("capture")]
+        public string LastFileNamePrefix {
+            get {
+                return ((string)(this["LastFileNamePrefix"]));
+            }
+            set {
+                this["LastFileNamePrefix"] = value;
+            }
+        }
     }
 }

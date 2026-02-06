@@ -7,6 +7,7 @@
         public string SaveFolderPath { get; set; } = string.Empty;
         public string AutoInputKey { get; set; } = "Space";
         public bool SaveAsPdf { get; set; } = false;
+        public string FileNamePrefix { get; set; } = "capture";
 
         public bool IsValid()
         {

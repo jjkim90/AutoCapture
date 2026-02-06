@@ -187,6 +187,21 @@
                                  Style="{StaticResource MaterialDesignFloatingHintTextBox}"
                                  Margin="0,0,0,16"/>
 
+                        <!-- 파일명 접두사 -->
+                        <TextBox Text="{Binding FileNamePrefix}"
+                                 materialDesign:HintAssist.Hint="파일명 접두사 (예: capture, screenshot)"
+                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                 Margin="0,0,0,8"/>
+                        <TextBlock Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                   Foreground="Gray"
+                                   Margin="0,0,0,16">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="파일명 예시: {0}_20250716_123456.png">
+                                    <Binding Path="FileNamePrefix"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+
                         <!-- PDF 저장 옵션 -->
                         <CheckBox Content="캡처 완료 후 PDF로 저장"
                                   IsChecked="{Binding SaveAsPdf}"

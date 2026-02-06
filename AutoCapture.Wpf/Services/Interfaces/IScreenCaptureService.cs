@@ -6,7 +6,7 @@ namespace AutoCapture.Wpf.Services.Interfaces
     public interface IScreenCaptureService
     {
         Task<Bitmap?> CaptureAreaAsync(CaptureArea area);
-        Task<string> SaveCaptureAsync(Bitmap bitmap, string folderPath);
-        Task<string> SaveAsPdfAsync(List<string> imagePaths, string folderPath);
+        Task<string> SaveCaptureAsync(Bitmap bitmap, string folderPath, string fileNamePrefix = "capture");
+        Task<string> SaveAsPdfAsync(List<string> imagePaths, string folderPath, string fileNamePrefix = "capture");
     }
 }

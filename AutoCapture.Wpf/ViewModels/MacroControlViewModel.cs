@@ -97,7 +97,8 @@ namespace AutoCapture.Wpf.ViewModels
                     IntervalSeconds = _captureSettings.IntervalSeconds,
                     SaveFolderPath = _captureSettings.SaveFolderPath,
                     AutoInputKey = _captureSettings.AutoInputKey,
-                    SaveAsPdf = _captureSettings.SaveAsPdf
+                    SaveAsPdf = _captureSettings.SaveAsPdf,
+                    FileNamePrefix = _captureSettings.FileNamePrefix
                 };
                 
                 // 캡처 영역 가져오기

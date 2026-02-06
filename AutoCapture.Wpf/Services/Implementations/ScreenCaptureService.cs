@@ -48,7 +48,7 @@ namespace AutoCapture.Wpf.Services.Implementations
             });
         }
 
-        public async Task<string> SaveCaptureAsync(Bitmap bitmap, string folderPath)
+        public async Task<string> SaveCaptureAsync(Bitmap bitmap, string folderPath, string fileNamePrefix = "capture")
         {
             return await Task.Run(() =>
             {
@@ -59,7 +59,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                         Directory.CreateDirectory(folderPath);
                     }
 
-                    var fileName = $"capture_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                    var fileName = $"{fileNamePrefix}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                     var filePath = Path.Combine(folderPath, fileName);
 
                     bitmap.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
@@ -75,13 +75,13 @@ namespace AutoCapture.Wpf.Services.Implementations
             });
         }
 
-        public async Task<string> SaveAsPdfAsync(List<string> imagePaths, string folderPath)
+        public async Task<string> SaveAsPdfAsync(List<string> imagePaths, string folderPath, string fileNamePrefix = "capture")
         {
             return await Task.Run(() =>
             {
                 try
                 {
-                    var pdfFileName = $"capture_collection_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                    var pdfFileName = $"{fileNamePrefix}_collection_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
                     var pdfPath = Path.Combine(folderPath, pdfFileName);
 
                     Document.Create(container =>

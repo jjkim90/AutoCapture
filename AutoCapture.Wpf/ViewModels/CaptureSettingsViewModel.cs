@@ -87,6 +87,19 @@ namespace AutoCapture.Wpf.ViewModels
             }
         }
 
+        public string FileNamePrefix
+        {
+            get => Settings.FileNamePrefix;
+            set
+            {
+                if (Settings.FileNamePrefix != value)
+                {
+                    Settings.FileNamePrefix = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public ICommand SelectFolderCommand { get; }
 
         public CaptureSettingsViewModel(ILogger logger)

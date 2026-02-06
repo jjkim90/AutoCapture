@@ -87,7 +87,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                     var bitmap = await _screenCaptureService.CaptureAreaAsync(area);
                     if (bitmap != null)
                     {
-                        var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath);
+                        var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath, settings.FileNamePrefix);
                         capturedFiles.Add(filePath);
                         bitmap.Dispose();
                     }
@@ -106,7 +106,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                 // PDF 저장 (설정된 경우)
                 if (settings.SaveAsPdf && capturedFiles.Count > 0)
                 {
-                    await _screenCaptureService.SaveAsPdfAsync(capturedFiles, settings.SaveFolderPath);
+                    await _screenCaptureService.SaveAsPdfAsync(capturedFiles, settings.SaveFolderPath, settings.FileNamePrefix);
                 }
 
                 // 완료 이벤트
