@@ -52,6 +52,10 @@ namespace AutoCapture.Wpf.Services.Implementations
             {
                 _logger.Information("매크로 실행 시작: {Settings}", settings);
                 
+                // 첫 캡처 전 초기 대기 시간 (창 최소화 후 안정화)
+                await Task.Delay(2000, cancellationToken);
+                _logger.Information("초기 대기 완료, 캡처 시작");
+                
                 for (int i = 1; i <= settings.CaptureCount && !cancellationToken.IsCancellationRequested; i++)
                 {
                     await _pauseSemaphore.WaitAsync(cancellationToken);
@@ -76,20 +80,21 @@ namespace AutoCapture.Wpf.Services.Implementations
                         Message = $"캡처 {i}/{settings.CaptureCount} 진행 중..."
                     });
 
-                    // 키 입력
-                    if (!string.IsNullOrEmpty(settings.AutoInputKey))
-                    {
-                        await _inputService.SendKeyAsync(settings.AutoInputKey);
-                        await Task.Delay(100, cancellationToken); // 키 입력 후 짧은 대기
-                    }
-
-                    // 화면 캡처
+                    // 화면 캡처 (키 입력보다 먼저)
                     var bitmap = await _screenCaptureService.CaptureAreaAsync(area);
                     if (bitmap != null)
                     {
                         var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath, settings.FileNamePrefix);
                         capturedFiles.Add(filePath);
                         bitmap.Dispose();
+                    }
+
+                    // 키 입력 (캡처 후에 실행)
+                    if (!string.IsNullOrEmpty(settings.AutoInputKey))
+                    {
+                        await Task.Delay(100, cancellationToken); // 캡처 후 짧은 대기
+                        await _inputService.SendKeyAsync(settings.AutoInputKey);
+                        await Task.Delay(100, cancellationToken); // 키 입력 후 짧은 대기
                     }
 
                     // 다음 캡처까지 대기 (마지막 캡처가 아닌 경우)

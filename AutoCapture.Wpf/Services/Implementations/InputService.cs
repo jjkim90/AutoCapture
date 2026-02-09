@@ -23,28 +23,51 @@ namespace AutoCapture.Wpf.Services.Implementations
                 {
                     _logger.Debug("키 입력: {Key}", key);
                     
-                    // 특수 키 매핑
-                    switch (key.ToLower())
+                    // 조합 키 처리 (Ctrl+, Alt+, Shift+)
+                    var parts = key.Split('+');
+                    if (parts.Length > 1)
                     {
-                        case "space":
-                            _simulator.Keyboard.KeyPress(VirtualKeyCode.SPACE);
-                            break;
-                        case "enter":
-                            _simulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
-                            break;
-                        case "tab":
-                            _simulator.Keyboard.KeyPress(VirtualKeyCode.TAB);
-                            break;
-                        case "escape":
-                        case "esc":
-                            _simulator.Keyboard.KeyPress(VirtualKeyCode.ESCAPE);
-                            break;
-                        default:
-                            if (key.Length == 1)
+                        var modifiers = new List<VirtualKeyCode>();
+                        var mainKey = parts[parts.Length - 1];
+                        
+                        // 수정자 키 확인
+                        for (int i = 0; i < parts.Length - 1; i++)
+                        {
+                            switch (parts[i].ToLower())
                             {
-                                _simulator.Keyboard.TextEntry(key);
+                                case "ctrl":
+                                    modifiers.Add(VirtualKeyCode.CONTROL);
+                                    break;
+                                case "alt":
+                                    modifiers.Add(VirtualKeyCode.MENU);
+                                    break;
+                                case "shift":
+                                    modifiers.Add(VirtualKeyCode.SHIFT);
+                                    break;
                             }
-                            break;
+                        }
+                        
+                        // 조합 키 실행
+                        if (modifiers.Count > 0)
+                        {
+                            var keyCode = GetVirtualKeyCode(mainKey);
+                            if (keyCode != null)
+                            {
+                                _simulator.Keyboard.ModifiedKeyStroke(modifiers, keyCode.Value);
+                            }
+                            return;
+                        }
+                    }
+                    
+                    // 단일 키 처리
+                    var vkCode = GetVirtualKeyCode(key);
+                    if (vkCode != null)
+                    {
+                        _simulator.Keyboard.KeyPress(vkCode.Value);
+                    }
+                    else if (key.Length == 1)
+                    {
+                        _simulator.Keyboard.TextEntry(key);
                     }
                 }
                 catch (Exception ex)
@@ -102,6 +125,82 @@ namespace AutoCapture.Wpf.Services.Implementations
         {
             await MoveMouseAsync(x, y);
             await ClickAsync();
+        }
+
+        private VirtualKeyCode? GetVirtualKeyCode(string key)
+        {
+            return key.ToLower() switch
+            {
+                "space" => VirtualKeyCode.SPACE,
+                "enter" => VirtualKeyCode.RETURN,
+                "tab" => VirtualKeyCode.TAB,
+                "escape" or "esc" => VirtualKeyCode.ESCAPE,
+                "backspace" => VirtualKeyCode.BACK,
+                "delete" => VirtualKeyCode.DELETE,
+                "insert" => VirtualKeyCode.INSERT,
+                "home" => VirtualKeyCode.HOME,
+                "end" => VirtualKeyCode.END,
+                "pageup" => VirtualKeyCode.PRIOR,
+                "pagedown" => VirtualKeyCode.NEXT,
+                "left" => VirtualKeyCode.LEFT,
+                "right" => VirtualKeyCode.RIGHT,
+                "up" => VirtualKeyCode.UP,
+                "down" => VirtualKeyCode.DOWN,
+                "capslock" => VirtualKeyCode.CAPITAL,
+                "numlock" => VirtualKeyCode.NUMLOCK,
+                "scrolllock" => VirtualKeyCode.SCROLL,
+                "printscreen" => VirtualKeyCode.SNAPSHOT,
+                "pause" => VirtualKeyCode.PAUSE,
+                "f1" => VirtualKeyCode.F1,
+                "f2" => VirtualKeyCode.F2,
+                "f3" => VirtualKeyCode.F3,
+                "f4" => VirtualKeyCode.F4,
+                "f5" => VirtualKeyCode.F5,
+                "f6" => VirtualKeyCode.F6,
+                "f7" => VirtualKeyCode.F7,
+                "f8" => VirtualKeyCode.F8,
+                "f9" => VirtualKeyCode.F9,
+                "f10" => VirtualKeyCode.F10,
+                "f11" => VirtualKeyCode.F11,
+                "f12" => VirtualKeyCode.F12,
+                "0" => VirtualKeyCode.VK_0,
+                "1" => VirtualKeyCode.VK_1,
+                "2" => VirtualKeyCode.VK_2,
+                "3" => VirtualKeyCode.VK_3,
+                "4" => VirtualKeyCode.VK_4,
+                "5" => VirtualKeyCode.VK_5,
+                "6" => VirtualKeyCode.VK_6,
+                "7" => VirtualKeyCode.VK_7,
+                "8" => VirtualKeyCode.VK_8,
+                "9" => VirtualKeyCode.VK_9,
+                "a" => VirtualKeyCode.VK_A,
+                "b" => VirtualKeyCode.VK_B,
+                "c" => VirtualKeyCode.VK_C,
+                "d" => VirtualKeyCode.VK_D,
+                "e" => VirtualKeyCode.VK_E,
+                "f" => VirtualKeyCode.VK_F,
+                "g" => VirtualKeyCode.VK_G,
+                "h" => VirtualKeyCode.VK_H,
+                "i" => VirtualKeyCode.VK_I,
+                "j" => VirtualKeyCode.VK_J,
+                "k" => VirtualKeyCode.VK_K,
+                "l" => VirtualKeyCode.VK_L,
+                "m" => VirtualKeyCode.VK_M,
+                "n" => VirtualKeyCode.VK_N,
+                "o" => VirtualKeyCode.VK_O,
+                "p" => VirtualKeyCode.VK_P,
+                "q" => VirtualKeyCode.VK_Q,
+                "r" => VirtualKeyCode.VK_R,
+                "s" => VirtualKeyCode.VK_S,
+                "t" => VirtualKeyCode.VK_T,
+                "u" => VirtualKeyCode.VK_U,
+                "v" => VirtualKeyCode.VK_V,
+                "w" => VirtualKeyCode.VK_W,
+                "x" => VirtualKeyCode.VK_X,
+                "y" => VirtualKeyCode.VK_Y,
+                "z" => VirtualKeyCode.VK_Z,
+                _ => null
+            };
         }
     }
 }

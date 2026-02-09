@@ -4,10 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AutoCapture.Wpf"
+        xmlns:controls="clr-namespace:AutoCapture.Wpf.Controls"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="AutoCapture - 화면 캡처 자동화" 
-        Height="1000" Width="700"
+        Height="1200" Width="700"
         MinHeight="650" MinWidth="600"
         ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen"
@@ -128,7 +129,7 @@
                             <Slider Grid.Column="0" 
                                     Value="{Binding CaptureCount}" 
                                     Minimum="1" 
-                                    Maximum="100"
+                                    Maximum="500"
                                     TickFrequency="1"
                                     IsSnapToTickEnabled="True"
                                     Margin="0,0,8,0"/>
@@ -182,17 +183,18 @@
                         </Grid>
 
                         <!-- 자동 입력 키 -->
-                        <TextBox Text="{Binding AutoInputKey}"
-                                 materialDesign:HintAssist.Hint="자동 입력 키 (예: space, enter)"
-                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
-                                 Margin="0,0,0,16"/>
+                        <controls:KeySelectionControl SelectedKey="{Binding AutoInputKey, UpdateSourceTrigger=PropertyChanged}"
+                                                      Margin="0,0,0,16"/>
 
                         <!-- 파일명 접두사 -->
+                        <TextBlock Text="파일명 접두사" 
+                                   Style="{StaticResource MaterialDesignBody2TextBlock}"
+                                   Margin="0,0,0,8"/>
                         <TextBox Text="{Binding FileNamePrefix}"
-                                 materialDesign:HintAssist.Hint="파일명 접두사 (예: capture, screenshot)"
+                                 materialDesign:HintAssist.Hint="예: capture, screenshot"
                                  Style="{StaticResource MaterialDesignFloatingHintTextBox}"
                                  Margin="0,0,0,8"/>
-                        <TextBlock Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                        <TextBlock Style="{StaticResource MaterialDesignBody2TextBlock}"
                                    Foreground="Gray"
                                    Margin="0,0,0,16">
                             <TextBlock.Text>
