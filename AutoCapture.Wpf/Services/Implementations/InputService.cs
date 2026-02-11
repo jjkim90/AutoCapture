@@ -8,11 +8,13 @@ namespace AutoCapture.Wpf.Services.Implementations
     {
         private readonly ILogger _logger;
         private readonly IInputSimulator _simulator;
+        private readonly Random _random;
 
         public InputService(ILogger logger)
         {
             _logger = logger;
             _simulator = new InputSimulator();
+            _random = new Random();
         }
 
         public async Task SendKeyAsync(string key)
@@ -73,6 +75,98 @@ namespace AutoCapture.Wpf.Services.Implementations
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "키 입력 실패: {Key}", key);
+                    throw;
+                }
+            });
+        }
+
+        public async Task SendKeyWithRandomTimingAsync(string key)
+        {
+            await Task.Run(async () =>
+            {
+                try
+                {
+                    _logger.Debug("키 입력 (랜덤 타이밍): {Key}", key);
+                    
+                    // 조합 키 처리 (Ctrl+, Alt+, Shift+)
+                    var parts = key.Split('+');
+                    if (parts.Length > 1)
+                    {
+                        var modifiers = new List<VirtualKeyCode>();
+                        var mainKey = parts[parts.Length - 1];
+                        
+                        // 수정자 키 확인
+                        for (int i = 0; i < parts.Length - 1; i++)
+                        {
+                            switch (parts[i].ToLower())
+                            {
+                                case "ctrl":
+                                    modifiers.Add(VirtualKeyCode.CONTROL);
+                                    break;
+                                case "alt":
+                                    modifiers.Add(VirtualKeyCode.MENU);
+                                    break;
+                                case "shift":
+                                    modifiers.Add(VirtualKeyCode.SHIFT);
+                                    break;
+                            }
+                        }
+                        
+                        // 조합 키 실행 (랜덤 타이밍)
+                        if (modifiers.Count > 0)
+                        {
+                            var keyCode = GetVirtualKeyCode(mainKey);
+                            if (keyCode != null)
+                            {
+                                foreach (var modifier in modifiers)
+                                {
+                                    _simulator.Keyboard.KeyDown(modifier);
+                                }
+                                
+                                _simulator.Keyboard.KeyDown(keyCode.Value);
+                                
+                                // 실제 사람의 키 입력 패턴 모방
+                                var duration = _random.Next(100) < 5 
+                                    ? _random.Next(200, 301)  // 5% 확률로 긴 키 홀드
+                                    : _random.Next(20, 151);  // 95% 확률로 일반 키 홀드
+                                await Task.Delay(duration);
+                                
+                                _simulator.Keyboard.KeyUp(keyCode.Value);
+                                
+                                foreach (var modifier in modifiers.Reverse<VirtualKeyCode>())
+                                {
+                                    _simulator.Keyboard.KeyUp(modifier);
+                                }
+                            }
+                            return;
+                        }
+                    }
+                    
+                    // 단일 키 처리 (랜덤 타이밍)
+                    var vkCode = GetVirtualKeyCode(key);
+                    if (vkCode != null)
+                    {
+                        _simulator.Keyboard.KeyDown(vkCode.Value);
+                        
+                        // 실제 사람의 키 입력 패턴 모방
+                        var duration = _random.Next(100) < 5 
+                            ? _random.Next(200, 301)  // 5% 확률로 긴 키 홀드
+                            : _random.Next(20, 151);  // 95% 확률로 일반 키 홀드
+                        await Task.Delay(duration);
+                        
+                        _simulator.Keyboard.KeyUp(vkCode.Value);
+                    }
+                    else if (key.Length == 1)
+                    {
+                        _simulator.Keyboard.TextEntry(key);
+                    }
+                    
+                    // 키 입력 후 짧은 대기 (10-50ms)
+                    await Task.Delay(_random.Next(10, 51));
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "키 입력 실패 (랜덤 타이밍): {Key}", key);
                     throw;
                 }
             });

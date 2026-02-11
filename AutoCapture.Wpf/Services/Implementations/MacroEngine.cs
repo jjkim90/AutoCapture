@@ -89,20 +89,22 @@ namespace AutoCapture.Wpf.Services.Implementations
                         bitmap.Dispose();
                     }
 
-                    // 키 입력 (캡처 후에 실행)
+                    // 키 입력 (캡처 후에 실행 - 랜덤 타이밍)
                     if (!string.IsNullOrEmpty(settings.AutoInputKey))
                     {
-                        await Task.Delay(100, cancellationToken); // 캡처 후 짧은 대기
-                        await _inputService.SendKeyAsync(settings.AutoInputKey);
-                        await Task.Delay(100, cancellationToken); // 키 입력 후 짧은 대기
+                        await Task.Delay(_random.Next(100, 301), cancellationToken); // 캡처 후 랜덤 대기
+                        await _inputService.SendKeyWithRandomTimingAsync(settings.AutoInputKey);
                     }
 
                     // 다음 캡처까지 대기 (마지막 캡처가 아닌 경우)
                     if (i < settings.CaptureCount)
                     {
                         var delayMs = settings.IntervalSeconds * 1000;
-                        var randomDelay = _random.Next(-1000, 1001); // ±1초 랜덤
-                        var totalDelay = Math.Max(100, delayMs + randomDelay); // 최소 100ms
+                        // 더 넓은 랜덤 범위: -50% ~ +100%
+                        var minRandom = -(int)(delayMs * 0.5);
+                        var maxRandom = (int)(delayMs * 1.0);
+                        var randomDelay = _random.Next(minRandom, maxRandom + 1);
+                        var totalDelay = Math.Max(1000, delayMs + randomDelay); // 최소 1초
                         
                         await Task.Delay(totalDelay, cancellationToken);
                     }
