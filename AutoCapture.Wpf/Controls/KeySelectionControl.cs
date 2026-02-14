@@ -17,10 +17,10 @@ namespace AutoCapture.Wpf.Controls
             set => SetValue(SelectedKeyProperty, value);
         }
 
-        private TextBox _displayTextBox;
-        private Button _customKeyButton;
-        private Button _spaceButton;
-        private Button _rightArrowButton;
+        private TextBox _displayTextBox = null!;
+        private Button _customKeyButton = null!;
+        private Button _spaceButton = null!;
+        private Button _rightArrowButton = null!;
 
         public KeySelectionControl()
         {
