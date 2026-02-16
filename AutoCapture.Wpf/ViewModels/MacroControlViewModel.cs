@@ -196,7 +196,17 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 MacroState.Status = MacroStatus.Completed;
                 MacroState.EndTime = DateTime.Now;
-                StatusMessage = $"매크로 완료 - 캡처: {e.TotalCaptured}개, 소요시간: {e.ElapsedTime:mm\\:ss}";
+                
+                // 성공/실패 상태에 따른 메시지 구성
+                var failedCount = e.TotalAttempted - e.TotalCaptured;
+                if (failedCount > 0)
+                {
+                    StatusMessage = $"매크로 완료 - 성공: {e.TotalCaptured}개, 실패: {failedCount}개, 소요시간: {e.ElapsedTime:mm\\:ss}";
+                }
+                else
+                {
+                    StatusMessage = $"매크로 완료 - 캡처: {e.TotalCaptured}개, 소요시간: {e.ElapsedTime:mm\\:ss}";
+                }
                 
                 // 메인 윈도우 복원 (선택사항)
                 var mainWindow = System.Windows.Application.Current.MainWindow;
@@ -211,10 +221,10 @@ namespace AutoCapture.Wpf.ViewModels
                 System.Media.SystemSounds.Exclamation.Play();
                 
                 // Windows 알림 표시
-                ShowCompletionNotification(e.TotalCaptured, e.ElapsedTime);
+                ShowCompletionNotification(e.TotalCaptured, e.TotalAttempted, e.ElapsedTime, e.Errors);
                 
-                _logger.Information("매크로 완료. 캡처 수: {Count}, 소요 시간: {Time}", 
-                    e.TotalCaptured, e.ElapsedTime);
+                _logger.Information("매크로 완료. 성공: {Success}/{Total}, 소요 시간: {Time}", 
+                    e.TotalCaptured, e.TotalAttempted, e.ElapsedTime);
             });
         }
         
@@ -224,7 +234,13 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 MacroState.Status = MacroStatus.Error;
                 MacroState.LastError = e.Exception.Message;
-                StatusMessage = $"오류: {e.Message}";
+                
+                // 사용자 친화적 에러 메시지
+                var userMessage = ErrorMessages.GetUserFriendlyMessage(e.Exception);
+                StatusMessage = $"오류: {userMessage}";
+                
+                // 에러 팔업 표시
+                ShowErrorNotification(e.Exception);
                 
                 _logger.Error(e.Exception, "매크로 오류: {Message}", e.Message);
             });
@@ -240,13 +256,23 @@ namespace AutoCapture.Wpf.ViewModels
             });
         }
         
-        private void ShowCompletionNotification(int totalCaptured, TimeSpan elapsedTime)
+        private void ShowCompletionNotification(int totalCaptured, int totalAttempted, TimeSpan elapsedTime, List<MacroErrorInfo>? errors)
         {
             try
             {
+                string message;
+                if (errors != null && errors.Count > 0)
+                {
+                    var failedCount = totalAttempted - totalCaptured;
+                    message = $"캡처 작업 완료\n\n성공: {totalCaptured}개\n실패: {failedCount}개\n소요시간: {elapsedTime:mm\\:ss}\n\n실패한 캡처가 있습니다.";
+                }
+                else
+                {
+                    message = $"총 {totalCaptured}개 캡처 완료\n소요시간: {elapsedTime:mm\\:ss}";
+                }
+                
                 // 사용자 정의 알림 창 표시
-                var notificationWindow = new Views.NotificationWindow(
-                    $"총 {totalCaptured}개 캡처 완료\n소요시간: {elapsedTime:mm\\:ss}");
+                var notificationWindow = new Views.NotificationWindow(message);
                 notificationWindow.Show();
                     
                 _logger.Information("작업 완료 알림 표시됨");
@@ -254,6 +280,27 @@ namespace AutoCapture.Wpf.ViewModels
             catch (Exception ex)
             {
                 _logger.Error(ex, "알림 표시 중 오류 발생");
+            }
+        }
+        
+        private void ShowErrorNotification(Exception exception)
+        {
+            try
+            {
+                var userMessage = ErrorMessages.GetUserFriendlyMessage(exception);
+                var advice = ErrorMessages.GetRecoveryAdvice(exception);
+                
+                var fullMessage = $"{userMessage}\n\n해결 방법:\n{advice}";
+                
+                // 에러 알림 창 표시
+                var notificationWindow = new Views.NotificationWindow(fullMessage, isError: true);
+                notificationWindow.Show();
+                
+                _logger.Information("에러 알림 표시됨");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "에러 알림 표시 중 오류 발생");
             }
         }
     }

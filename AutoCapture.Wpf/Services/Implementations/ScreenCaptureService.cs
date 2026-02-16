@@ -21,30 +21,48 @@ namespace AutoCapture.Wpf.Services.Implementations
 
         public async Task<Bitmap?> CaptureAreaAsync(CaptureArea area)
         {
-            return await Task.Run(() =>
+            const int maxRetries = 3;
+            const int retryDelayMs = 500;
+            
+            return await Task.Run(async () =>
             {
-                try
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
                 {
-                    _logger.Information("화면 캡처 시작: {Area}", area);
-
-                    var bitmap = new Bitmap(area.Width, area.Height);
-                    using (var graphics = Graphics.FromImage(bitmap))
+                    try
                     {
-                        graphics.CopyFromScreen(
-                            area.X, area.Y,
-                            0, 0,
-                            new System.Drawing.Size(area.Width, area.Height),
-                            CopyPixelOperation.SourceCopy);
-                    }
+                        _logger.Information("화면 캡처 시도 {Attempt}/{MaxAttempts}: {Area}", attempt, maxRetries, area);
 
-                    _logger.Information("화면 캡처 완료");
-                    return bitmap;
+                        var bitmap = new Bitmap(area.Width, area.Height);
+                        using (var graphics = Graphics.FromImage(bitmap))
+                        {
+                            graphics.CopyFromScreen(
+                                area.X, area.Y,
+                                0, 0,
+                                new System.Drawing.Size(area.Width, area.Height),
+                                CopyPixelOperation.SourceCopy);
+                        }
+
+                        _logger.Information("화면 캡처 성공 (시도 {Attempt})", attempt);
+                        return bitmap;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warning(ex, "화면 캡처 실패 (시도 {Attempt}/{MaxAttempts})", attempt, maxRetries);
+                        
+                        if (attempt < maxRetries)
+                        {
+                            _logger.Information("재시도 대기 중... {DelayMs}ms", retryDelayMs);
+                            await Task.Delay(retryDelayMs);
+                        }
+                        else
+                        {
+                            _logger.Error(ex, "화면 캡처 최종 실패: 모든 재시도 소진");
+                            return null;
+                        }
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "화면 캡처 실패");
-                    return null;
-                }
+                
+                return null;
             });
         }
 

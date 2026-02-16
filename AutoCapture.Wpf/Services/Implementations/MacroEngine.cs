@@ -46,6 +46,7 @@ namespace AutoCapture.Wpf.Services.Implementations
         private async Task RunMacroAsync(CaptureSettings settings, CaptureArea area, CancellationToken cancellationToken)
         {
             var capturedFiles = new List<string>();
+            var errors = new List<MacroErrorInfo>();
             var startTime = DateTime.Now;
 
             try
@@ -81,12 +82,57 @@ namespace AutoCapture.Wpf.Services.Implementations
                     });
 
                     // 화면 캡처 (키 입력보다 먼저)
-                    var bitmap = await _screenCaptureService.CaptureAreaAsync(area);
-                    if (bitmap != null)
+                    try
                     {
-                        var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath, settings.FileNamePrefix);
-                        capturedFiles.Add(filePath);
-                        bitmap.Dispose();
+                        var bitmap = await _screenCaptureService.CaptureAreaAsync(area);
+                        if (bitmap != null)
+                        {
+                            try
+                            {
+                                var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath, settings.FileNamePrefix);
+                                capturedFiles.Add(filePath);
+                            }
+                            catch (Exception saveEx)
+                            {
+                                _logger.Error(saveEx, "캡처 저장 실패 (캡처 {Count})", i);
+                                errors.Add(new MacroErrorInfo
+                                {
+                                    CaptureIndex = i,
+                                    ErrorType = saveEx.GetType().Name,
+                                    ErrorMessage = saveEx.Message,
+                                    OccurredAt = DateTime.Now,
+                                    IsRecoverable = true
+                                });
+                            }
+                            finally
+                            {
+                                bitmap.Dispose();
+                            }
+                        }
+                        else
+                        {
+                            _logger.Warning("캡처 실패 (캡처 {Count}): 화면 캡처 반환값 null", i);
+                            errors.Add(new MacroErrorInfo
+                            {
+                                CaptureIndex = i,
+                                ErrorType = "CaptureFailure",
+                                ErrorMessage = "화면 캡처에 실패했습니다.",
+                                OccurredAt = DateTime.Now,
+                                IsRecoverable = true
+                            });
+                        }
+                    }
+                    catch (Exception captureEx)
+                    {
+                        _logger.Error(captureEx, "캡처 프로세스 실패 (캡처 {Count})", i);
+                        errors.Add(new MacroErrorInfo
+                        {
+                            CaptureIndex = i,
+                            ErrorType = captureEx.GetType().Name,
+                            ErrorMessage = captureEx.Message,
+                            OccurredAt = DateTime.Now,
+                            IsRecoverable = true
+                        });
                     }
 
                     // 키 입력 (캡처 후에 실행 - 랜덤 타이밍)
@@ -121,12 +167,14 @@ namespace AutoCapture.Wpf.Services.Implementations
                 Completed?.Invoke(this, new MacroCompletedEventArgs
                 {
                     TotalCaptured = capturedFiles.Count,
+                    TotalAttempted = settings.CaptureCount,
                     ElapsedTime = elapsedTime,
-                    CapturedFiles = capturedFiles
+                    CapturedFiles = capturedFiles,
+                    Errors = errors.Count > 0 ? errors : null
                 });
 
-                _logger.Information("매크로 실행 완료. 캡처 수: {Count}, 소요 시간: {Time}", 
-                    capturedFiles.Count, elapsedTime);
+                _logger.Information("매크로 실행 완료. 성공: {Success}/{Total}, 실패: {Failed}, 소요 시간: {Time}", 
+                    capturedFiles.Count, settings.CaptureCount, errors.Count, elapsedTime);
             }
             catch (OperationCanceledException)
             {

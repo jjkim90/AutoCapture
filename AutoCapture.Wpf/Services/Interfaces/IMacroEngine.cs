@@ -27,8 +27,10 @@ namespace AutoCapture.Wpf.Services.Interfaces
     public class MacroCompletedEventArgs : EventArgs
     {
         public int TotalCaptured { get; set; }
+        public int TotalAttempted { get; set; }
         public TimeSpan ElapsedTime { get; set; }
         public List<string>? CapturedFiles { get; set; }
+        public List<MacroErrorInfo>? Errors { get; set; }
     }
 
     public class MacroErrorEventArgs : EventArgs
