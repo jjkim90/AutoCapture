@@ -80,7 +80,18 @@ namespace AutoCapture.Wpf.Services.Implementations
                     var fileName = $"{fileNamePrefix}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                     var filePath = Path.Combine(folderPath, fileName);
 
-                    bitmap.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+                    // 메모리 스트림을 사용하여 효율적으로 저장
+                    using (var memoryStream = new MemoryStream())
+                    {
+                        bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
+                        memoryStream.Position = 0;
+                        
+                        using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                        {
+                            memoryStream.CopyTo(fileStream);
+                        }
+                    }
+                    
                     _logger.Information("캡처 이미지 저장 완료: {FilePath}", filePath);
 
                     return filePath;
@@ -101,21 +112,44 @@ namespace AutoCapture.Wpf.Services.Implementations
                 {
                     var pdfFileName = $"{fileNamePrefix}_collection_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
                     var pdfPath = Path.Combine(folderPath, pdfFileName);
+                    
+                    // 유효한 이미지 경로만 필터링
+                    var validImagePaths = imagePaths.Where(File.Exists).ToList();
+                    _logger.Information("PDF 생성 시작: {ValidCount}/{TotalCount} 이미지", 
+                        validImagePaths.Count, imagePaths.Count);
 
-                    Document.Create(container =>
+                    // 메모리 효율을 위해 청크 단위로 처리
+                    const int chunkSize = 50;
+                    using (var pdfStream = new FileStream(pdfPath, FileMode.Create, FileAccess.Write))
                     {
-                        foreach (var imagePath in imagePaths.Where(File.Exists))
+                        Document.Create(container =>
                         {
-                            container.Page(page =>
+                            for (int i = 0; i < validImagePaths.Count; i++)
                             {
-                                page.Size(QuestPDF.Helpers.PageSizes.A4);
-                                page.Margin(1, Unit.Centimetre);
-                                page.Content().Image(imagePath);
-                            });
-                        }
-                    }).GeneratePdf(pdfPath);
+                                var imagePath = validImagePaths[i];
+                                
+                                container.Page(page =>
+                                {
+                                    page.Size(QuestPDF.Helpers.PageSizes.A4);
+                                    page.Margin(1, Unit.Centimetre);
+                                    
+                                    // 메모리 사용량 최적화를 위해 스트림으로 처리
+                                    page.Content().Image(imagePath);
+                                });
+                                
+                                // 주기적 메모리 정리
+                                if ((i + 1) % chunkSize == 0)
+                                {
+                                    _logger.Information("PDF 생성 진행: {Processed}/{Total} 이미지 처리됨", 
+                                        i + 1, validImagePaths.Count);
+                                    GC.Collect();
+                                }
+                            }
+                        }).GeneratePdf(pdfStream);
+                    }
 
-                    _logger.Information("PDF 생성 완료: {PdfPath}", pdfPath);
+                    _logger.Information("PDF 생성 완료: {PdfPath}, 크기: {SizeMB:F2}MB", 
+                        pdfPath, new FileInfo(pdfPath).Length / 1024.0 / 1024.0);
                     return pdfPath;
                 }
                 catch (Exception ex)

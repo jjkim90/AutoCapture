@@ -1,5 +1,6 @@
 ﻿using AutoCapture.Wpf.Models;
 using AutoCapture.Wpf.Services.Interfaces;
+using AutoCapture.Wpf.Utilities;
 using Serilog;
 
 namespace AutoCapture.Wpf.Services.Implementations
@@ -57,6 +58,10 @@ namespace AutoCapture.Wpf.Services.Implementations
                 await Task.Delay(2000, cancellationToken);
                 _logger.Information("초기 대기 완료, 캡처 시작");
                 
+                // 메모리 사용량 초기 로깅
+                var initialMemory = GC.GetTotalMemory(false);
+                _logger.Information("매크로 시작 메모리: {MemoryMB:F2}MB", initialMemory / 1024.0 / 1024.0);
+                
                 for (int i = 1; i <= settings.CaptureCount && !cancellationToken.IsCancellationRequested; i++)
                 {
                     await _pauseSemaphore.WaitAsync(cancellationToken);
@@ -84,43 +89,77 @@ namespace AutoCapture.Wpf.Services.Implementations
                     // 화면 캡처 (키 입력보다 먼저)
                     try
                     {
-                        var bitmap = await _screenCaptureService.CaptureAreaAsync(area);
-                        if (bitmap != null)
+                        using (var bitmap = await _screenCaptureService.CaptureAreaAsync(area))
                         {
-                            try
+                            if (bitmap != null)
                             {
-                                var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath, settings.FileNamePrefix);
-                                capturedFiles.Add(filePath);
+                                try
+                                {
+                                    var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath, settings.FileNamePrefix);
+                                    capturedFiles.Add(filePath);
+                                }
+                                catch (Exception saveEx)
+                                {
+                                    _logger.Error(saveEx, "캡처 저장 실패 (캡처 {Count})", i);
+                                    errors.Add(new MacroErrorInfo
+                                    {
+                                        CaptureIndex = i,
+                                        ErrorType = saveEx.GetType().Name,
+                                        ErrorMessage = saveEx.Message,
+                                        OccurredAt = DateTime.Now,
+                                        IsRecoverable = true
+                                    });
+                                }
                             }
-                            catch (Exception saveEx)
+                            else
                             {
-                                _logger.Error(saveEx, "캡처 저장 실패 (캡처 {Count})", i);
+                                _logger.Warning("캡처 실패 (캡처 {Count}): 화면 캡처 반환값 null", i);
                                 errors.Add(new MacroErrorInfo
                                 {
                                     CaptureIndex = i,
-                                    ErrorType = saveEx.GetType().Name,
-                                    ErrorMessage = saveEx.Message,
+                                    ErrorType = "CaptureFailure",
+                                    ErrorMessage = "화면 캡처에 실패했습니다.",
                                     OccurredAt = DateTime.Now,
                                     IsRecoverable = true
                                 });
                             }
-                            finally
+                        }
+                        
+                        // 메모리 더니터링 및 정리
+                        if (i % 50 == 0 || MemoryHelper.IsMemoryPressureHigh())
+                        {
+                            var currentUsage = MemoryHelper.GetCurrentMemoryUsageMB();
+                            _logger.Information("현재 메모리 사용량 (캡처 {Count}): {MemoryMB:F2}MB", i, currentUsage);
+                            
+                            if (MemoryHelper.IsMemoryPressureHigh())
                             {
-                                bitmap.Dispose();
+                                _logger.Warning("메모리 사용량이 높습니다. GC 실행...");
+                                var (beforeMB, afterMB) = MemoryHelper.PerformGarbageCollection();
+                                _logger.Information("메모리 정리 완료: {BeforeMB:F2}MB -> {AfterMB:F2}MB", beforeMB, afterMB);
+                                
+                                // 메모리 압박이 여전히 높으면 잠시 대기
+                                if (MemoryHelper.IsMemoryPressureHigh(1500))
+                                {
+                                    _logger.Warning("메모리 압박이 계속됩니다. 5초 대기...");
+                                    await Task.Delay(5000, cancellationToken);
+                                }
                             }
                         }
-                        else
+                    }
+                    catch (OutOfMemoryException oomEx)
+                    {
+                        _logger.Error(oomEx, "메모리 부족 (캡처 {Count})", i);
+                        errors.Add(new MacroErrorInfo
                         {
-                            _logger.Warning("캡처 실패 (캡처 {Count}): 화면 캡처 반환값 null", i);
-                            errors.Add(new MacroErrorInfo
-                            {
-                                CaptureIndex = i,
-                                ErrorType = "CaptureFailure",
-                                ErrorMessage = "화면 캡처에 실패했습니다.",
-                                OccurredAt = DateTime.Now,
-                                IsRecoverable = true
-                            });
-                        }
+                            CaptureIndex = i,
+                            ErrorType = "OutOfMemoryException",
+                            ErrorMessage = "메모리가 부족합니다. 다른 프로그램을 종료하거나 캡처 범위를 줄여주세요.",
+                            OccurredAt = DateTime.Now,
+                            IsRecoverable = false
+                        });
+                        
+                        // 메모리 부족 시 안전한 중단
+                        throw;
                     }
                     catch (Exception captureEx)
                     {
