@@ -105,7 +105,7 @@ namespace AutoCapture.Wpf.ViewModels
         public CaptureSettingsViewModel(ILogger logger)
         {
             _logger = logger;
-            SelectFolderCommand = new RelayCommand(SelectFolder);
+            SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync);
             
             // 마지막 사용한 저장 폴더 복원
             var lastPath = Properties.Settings.Default.LastSaveFolderPath;
@@ -120,30 +120,66 @@ namespace AutoCapture.Wpf.ViewModels
             }
         }
 
-        private void SelectFolder()
+        private async Task SelectFolderAsync()
         {
-            // WPF에서는 기본 폴더 선택 다이얼로그가 없으므로 OpenFileDialog를 활용
-            var dialog = new Microsoft.Win32.OpenFileDialog
+            try
             {
-                Title = "캡처 이미지를 저장할 폴더를 선택하세요",
-                CheckFileExists = false,
-                CheckPathExists = true,
-                FileName = "폴더 선택",
-                Filter = "폴더|*.folder",
-                InitialDirectory = !string.IsNullOrEmpty(SaveFolderPath) && Directory.Exists(SaveFolderPath) 
-                    ? SaveFolderPath 
-                    : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
-            };
-
-            if (dialog.ShowDialog() == true)
-            {
-                var selectedPath = Path.GetDirectoryName(dialog.FileName);
-                if (!string.IsNullOrEmpty(selectedPath))
+                // Windows 10 FolderPicker 사용
+                var folderPicker = new Windows.Storage.Pickers.FolderPicker();
+                folderPicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary;
+                folderPicker.FileTypeFilter.Add("*"); // 필수 - 최소 하나의 파일 타입 필터 필요
+                
+                // WPF Window의 핸들 가져오기
+                var window = System.Windows.Application.Current.MainWindow;
+                var handle = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+                
+                // FolderPicker를 현재 창과 연결
+                WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, handle);
+                
+                // 폴더 선택
+                var folder = await folderPicker.PickSingleFolderAsync();
+                if (folder != null)
                 {
-                    SaveFolderPath = selectedPath;
-                    _logger.Information("저장 폴더 변경: {FolderPath}", SaveFolderPath);
+                    SaveFolderPath = folder.Path;
+                    _logger.Information("저장 폴더 변경 (FolderPicker): {FolderPath}", SaveFolderPath);
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "FolderPicker 사용 실패, 기존 방식으로 대체");
+                
+                // 폴백: 기존 OpenFileDialog 방식 사용
+                await Task.Run(() => SelectFolderFallback());
+            }
+        }
+        
+        private void SelectFolderFallback()
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                // 기존 OpenFileDialog 방식
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "캡처 이미지를 저장할 폴더를 선택하세요",
+                    CheckFileExists = false,
+                    CheckPathExists = true,
+                    FileName = "폴더 선택",
+                    Filter = "폴더|*.folder",
+                    InitialDirectory = !string.IsNullOrEmpty(SaveFolderPath) && Directory.Exists(SaveFolderPath) 
+                        ? SaveFolderPath 
+                        : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    var selectedPath = Path.GetDirectoryName(dialog.FileName);
+                    if (!string.IsNullOrEmpty(selectedPath))
+                    {
+                        SaveFolderPath = selectedPath;
+                        _logger.Information("저장 폴더 변경 (Fallback): {FolderPath}", SaveFolderPath);
+                    }
+                }
+            });
         }
 
         public bool Validate()
