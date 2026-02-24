@@ -89,43 +89,29 @@ namespace AutoCapture.Wpf.Services.Implementations
                     // 화면 캡처 (키 입력보다 먼저)
                     try
                     {
-                        using (var bitmap = await _screenCaptureService.CaptureAreaAsync(area))
+                        var filePath = await _screenCaptureService.CaptureAndSaveAsync(
+                            area, 
+                            settings.SaveFolderPath, 
+                            settings.FileNamePrefix);
+                            
+                        if (filePath != null)
                         {
-                            if (bitmap != null)
+                            capturedFiles.Add(filePath);
+                        }
+                        else
+                        {
+                            _logger.Warning("캡처 실패 (캡처 {Count}): 화면 캡처 반환값 null", i);
+                            errors.Add(new MacroErrorInfo
                             {
-                                try
-                                {
-                                    var filePath = await _screenCaptureService.SaveCaptureAsync(bitmap, settings.SaveFolderPath, settings.FileNamePrefix);
-                                    capturedFiles.Add(filePath);
-                                }
-                                catch (Exception saveEx)
-                                {
-                                    _logger.Error(saveEx, "캡처 저장 실패 (캡처 {Count})", i);
-                                    errors.Add(new MacroErrorInfo
-                                    {
-                                        CaptureIndex = i,
-                                        ErrorType = saveEx.GetType().Name,
-                                        ErrorMessage = saveEx.Message,
-                                        OccurredAt = DateTime.Now,
-                                        IsRecoverable = true
-                                    });
-                                }
-                            }
-                            else
-                            {
-                                _logger.Warning("캡처 실패 (캡처 {Count}): 화면 캡처 반환값 null", i);
-                                errors.Add(new MacroErrorInfo
-                                {
-                                    CaptureIndex = i,
-                                    ErrorType = "CaptureFailure",
-                                    ErrorMessage = "화면 캡처에 실패했습니다.",
-                                    OccurredAt = DateTime.Now,
-                                    IsRecoverable = true
-                                });
-                            }
+                                CaptureIndex = i,
+                                ErrorType = "CaptureFailure",
+                                ErrorMessage = "화면 캡처에 실패했습니다.",
+                                OccurredAt = DateTime.Now,
+                                IsRecoverable = true
+                            });
                         }
                         
-                        // 메모리 더니터링 및 정리
+                        // 메모리 모니터링 및 정리
                         if (i % 50 == 0 || MemoryHelper.IsMemoryPressureHigh())
                         {
                             var currentUsage = MemoryHelper.GetCurrentMemoryUsageMB();
@@ -163,7 +149,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                     }
                     catch (Exception captureEx)
                     {
-                        _logger.Error(captureEx, "캡처 프로세스 실패 (캡처 {Count})", i);
+                        _logger.Error(captureEx, "캡처 실패 (캡처 {Count})", i);
                         errors.Add(new MacroErrorInfo
                         {
                             CaptureIndex = i,
@@ -172,6 +158,9 @@ namespace AutoCapture.Wpf.Services.Implementations
                             OccurredAt = DateTime.Now,
                             IsRecoverable = true
                         });
+                        
+                        // 캡처 실패 시 Error 이벤트 발생
+                        Error?.Invoke(this, new MacroErrorEventArgs(captureEx, $"캡처 {i} 실패"));
                     }
 
                     // 키 입력 (캡처 후에 실행 - 랜덤 타이밍)

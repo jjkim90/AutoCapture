@@ -19,7 +19,7 @@ namespace AutoCapture.Wpf.Services.Implementations
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
-        public async Task<Bitmap?> CaptureAreaAsync(CaptureArea area)
+        public async Task<string?> CaptureAndSaveAsync(CaptureArea area, string folderPath, string fileNamePrefix = "capture")
         {
             const int maxRetries = 3;
             const int retryDelayMs = 500;
@@ -32,18 +32,34 @@ namespace AutoCapture.Wpf.Services.Implementations
                     {
                         _logger.Information("화면 캡처 시도 {Attempt}/{MaxAttempts}: {Area}", attempt, maxRetries, area);
 
-                        var bitmap = new Bitmap(area.Width, area.Height);
-                        using (var graphics = Graphics.FromImage(bitmap))
+                        // 폴더가 없으면 생성
+                        if (!Directory.Exists(folderPath))
                         {
-                            graphics.CopyFromScreen(
-                                area.X, area.Y,
-                                0, 0,
-                                new System.Drawing.Size(area.Width, area.Height),
-                                CopyPixelOperation.SourceCopy);
+                            Directory.CreateDirectory(folderPath);
                         }
 
-                        _logger.Information("화면 캡처 성공 (시도 {Attempt})", attempt);
-                        return bitmap;
+                        // 파일 경로 생성
+                        var fileName = $"{fileNamePrefix}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                        var filePath = Path.Combine(folderPath, fileName);
+
+                        // Bitmap을 using으로 감싸서 자동 Dispose 보장
+                        using (var bitmap = new Bitmap(area.Width, area.Height))
+                        {
+                            using (var graphics = Graphics.FromImage(bitmap))
+                            {
+                                graphics.CopyFromScreen(
+                                    area.X, area.Y,
+                                    0, 0,
+                                    new System.Drawing.Size(area.Width, area.Height),
+                                    CopyPixelOperation.SourceCopy);
+                            }
+
+                            // 메모리 스트림 없이 직접 파일로 저장
+                            bitmap.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+
+                        _logger.Information("화면 캡처 및 저장 성공 (시도 {Attempt}): {FilePath}", attempt, filePath);
+                        return filePath;
                     }
                     catch (Exception ex)
                     {
@@ -63,44 +79,6 @@ namespace AutoCapture.Wpf.Services.Implementations
                 }
                 
                 return null;
-            });
-        }
-
-        public async Task<string> SaveCaptureAsync(Bitmap bitmap, string folderPath, string fileNamePrefix = "capture")
-        {
-            return await Task.Run(() =>
-            {
-                try
-                {
-                    if (!Directory.Exists(folderPath))
-                    {
-                        Directory.CreateDirectory(folderPath);
-                    }
-
-                    var fileName = $"{fileNamePrefix}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-                    var filePath = Path.Combine(folderPath, fileName);
-
-                    // 메모리 스트림을 사용하여 효율적으로 저장
-                    using (var memoryStream = new MemoryStream())
-                    {
-                        bitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
-                        memoryStream.Position = 0;
-                        
-                        using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-                        {
-                            memoryStream.CopyTo(fileStream);
-                        }
-                    }
-                    
-                    _logger.Information("캡처 이미지 저장 완료: {FilePath}", filePath);
-
-                    return filePath;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "캡처 이미지 저장 실패");
-                    throw;
-                }
             });
         }
 

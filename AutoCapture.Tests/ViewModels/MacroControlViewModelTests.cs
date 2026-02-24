@@ -71,7 +71,10 @@ namespace AutoCapture.Tests.ViewModels
         {
             // Arrange
             _mockAreaSelection.Setup(x => x.HasSelection).Returns(true);
-            _mockMacroEngine.Setup(x => x.IsRunning).Returns(true);
+            _mockCaptureSettings.Setup(x => x.Validate()).Returns(true);
+            
+            // MacroState를 Running 상태로 설정
+            _viewModel.MacroState.Status = AutoCapture.Wpf.Models.MacroStatus.Running;
 
             // Act
             var canExecute = _viewModel.StartMacroCommand.CanExecute(null);

@@ -3,7 +3,6 @@ using AutoCapture.Wpf.Services.Implementations;
 using AutoCapture.Wpf.Services.Interfaces;
 using Moq;
 using Serilog;
-using System.Drawing;
 
 namespace AutoCapture.Tests.Services
 {
@@ -41,12 +40,8 @@ namespace AutoCapture.Tests.Services
             var area = new CaptureArea(0, 0, 100, 100);
             
             _mockScreenCaptureService
-                .Setup(x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()))
-                .ReturnsAsync(() => new Bitmap(100, 100));
-            
-            _mockScreenCaptureService
-                .Setup(x => x.SaveCaptureAsync(It.IsAny<Bitmap>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync((Bitmap b, string path, string prefix) => $"{path}\\{prefix}_test.png");
+                .Setup(x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync((CaptureArea a, string path, string prefix) => $"{path}\\{prefix}_test.png");
 
             var completedEventRaised = false;
             _macroEngine.Completed += (sender, args) =>
@@ -61,7 +56,7 @@ namespace AutoCapture.Tests.Services
             // Assert
             Assert.True(completedEventRaised);
             _mockScreenCaptureService.Verify(
-                x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()), 
+                x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()), 
                 Times.Exactly(3));
             _mockInputService.Verify(
                 x => x.SendKeyWithRandomTimingAsync("Right"), 
@@ -84,12 +79,8 @@ namespace AutoCapture.Tests.Services
             var area = new CaptureArea(0, 0, 100, 100);
             
             _mockScreenCaptureService
-                .Setup(x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()))
-                .ReturnsAsync(() => new Bitmap(100, 100));
-            
-            _mockScreenCaptureService
-                .Setup(x => x.SaveCaptureAsync(It.IsAny<Bitmap>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync((Bitmap b, string path, string prefix) => $"{path}\\{prefix}_test.png");
+                .Setup(x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync((CaptureArea a, string path, string prefix) => $"{path}\\{prefix}_test.png");
 
             // Act
             await _macroEngine.StartAsync(settings, area);
@@ -117,13 +108,9 @@ namespace AutoCapture.Tests.Services
             
             var captureCount = 0;
             _mockScreenCaptureService
-                .Setup(x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()))
-                .ReturnsAsync(() => new Bitmap(100, 100))
+                .Setup(x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync("test.png")
                 .Callback(() => captureCount++);
-            
-            _mockScreenCaptureService
-                .Setup(x => x.SaveCaptureAsync(It.IsAny<Bitmap>(), It.IsAny<string>(), It.IsAny<string>()))
-                .ReturnsAsync("test.png");
 
             // Act
             var executeTask = _macroEngine.StartAsync(settings, area);
@@ -157,11 +144,7 @@ namespace AutoCapture.Tests.Services
             _macroEngine.ProgressChanged += (sender, args) => progressEvents.Add(args);
             
             _mockScreenCaptureService
-                .Setup(x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()))
-                .ReturnsAsync(() => new Bitmap(100, 100));
-            
-            _mockScreenCaptureService
-                .Setup(x => x.SaveCaptureAsync(It.IsAny<Bitmap>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync("test.png");
 
             // Act
@@ -191,7 +174,7 @@ namespace AutoCapture.Tests.Services
             var area = new CaptureArea(0, 0, 100, 100);
             
             _mockScreenCaptureService
-                .Setup(x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()))
+                .Setup(x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ThrowsAsync(new Exception("Capture failed"));
 
             Exception? capturedException = null;
@@ -204,9 +187,9 @@ namespace AutoCapture.Tests.Services
             // Assert
             Assert.NotNull(capturedException);
             Assert.Equal("Capture failed", capturedException.Message);
-            _mockLogger.Verify(
-                x => x.Error(It.IsAny<Exception>(), It.IsAny<string>()), 
-                Times.AtLeastOnce);
+            // Serilog의 구조화된 로깅은 복잡한 제네릭 시그니처를 사용하므로
+            // 단순히 Error 메서드가 호출되었는지만 확인
+            Assert.Contains(_mockLogger.Invocations, i => i.Method.Name == "Error");
         }
 
         [Fact]
@@ -227,11 +210,7 @@ namespace AutoCapture.Tests.Services
             var area = new CaptureArea(0, 0, 100, 100);
             
             _mockScreenCaptureService
-                .Setup(x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()))
-                .ReturnsAsync(() => new Bitmap(100, 100));
-            
-            _mockScreenCaptureService
-                .Setup(x => x.SaveCaptureAsync(It.IsAny<Bitmap>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync("test.png");
 
             var executeTask = _macroEngine.StartAsync(settings, area);
@@ -257,11 +236,7 @@ namespace AutoCapture.Tests.Services
             var area = new CaptureArea(0, 0, 100, 100);
             
             _mockScreenCaptureService
-                .Setup(x => x.CaptureAreaAsync(It.IsAny<CaptureArea>()))
-                .ReturnsAsync(() => new Bitmap(100, 100));
-            
-            _mockScreenCaptureService
-                .Setup(x => x.SaveCaptureAsync(It.IsAny<Bitmap>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.CaptureAndSaveAsync(It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync("test.png");
 
             // Act
