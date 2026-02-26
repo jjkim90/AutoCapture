@@ -1,0 +1,99 @@
+<Window x:Class="AutoCapture.Wpf.Views.ErrorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="오류 발생"
+        Height="500" Width="600"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="14"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        Background="{DynamicResource MaterialDesignPaper}"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 헤더 제목 -->
+        <TextBlock Grid.Row="0"
+                   Text="예기치 않은 오류가 발생했습니다"
+                   Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                   Margin="0,0,0,20"/>
+
+        <!-- 사용자 친화적 메시지 -->
+        <Border Grid.Row="1" 
+                Background="{DynamicResource MaterialDesignDivider}"
+                CornerRadius="4"
+                Padding="15"
+                Margin="0,0,0,10">
+            <TextBlock x:Name="UserFriendlyMessageText"
+                       TextWrapping="Wrap"
+                       FontSize="16"/>
+        </Border>
+
+        <!-- 복구 조언 -->
+        <Expander Grid.Row="2" 
+                  Header="해결 방법"
+                  Margin="0,0,0,10">
+            <TextBlock x:Name="RecoveryAdviceText"
+                       TextWrapping="Wrap"
+                       Margin="20,10,0,10"
+                       LineHeight="22"/>
+        </Expander>
+
+        <!-- 상세 오류 정보 -->
+        <Expander Grid.Row="3" 
+                  Header="상세 정보"
+                  Margin="0,0,0,10">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                <TextBox x:Name="DetailedErrorText"
+                         IsReadOnly="True"
+                         TextWrapping="Wrap"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         FontFamily="Consolas"
+                         FontSize="12"
+                         Margin="20,10,0,10"/>
+            </ScrollViewer>
+        </Expander>
+
+        <!-- 버튼 영역 -->
+        <StackPanel Grid.Row="4" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            
+            <Button x:Name="CopyToClipboardButton"
+                    Content="오류 정보 복사"
+                    Style="{StaticResource MaterialDesignFlatButton}"
+                    Margin="0,0,10,0"
+                    Click="CopyToClipboardButton_Click"
+                    ToolTip="오류 정보를 클립보드로 복사합니다"/>
+
+            <Button x:Name="RestartButton"
+                    Content="다시 시작"
+                    Style="{StaticResource MaterialDesignFlatButton}"
+                    Margin="0,0,10,0"
+                    Click="RestartButton_Click"
+                    ToolTip="프로그램을 다시 시작합니다"/>
+
+            <Button x:Name="CloseButton"
+                    Content="{Binding CloseButtonText}"
+                    IsDefault="True"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Click="CloseButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
