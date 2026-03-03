@@ -15,7 +15,9 @@ namespace AutoCapture.Wpf.Services.Implementations
     public class ExceptionHandlerService : IExceptionHandlerService
     {
         private readonly ILogger _logger;
-        private readonly Application _application;
+        private readonly Application? _application;
+
+        public bool IsTestMode { get; set; }
 
         public ExceptionHandlerService(ILogger logger)
         {
@@ -25,8 +27,12 @@ namespace AutoCapture.Wpf.Services.Implementations
 
         public void RegisterGlobalHandlers()
         {
-            // UI 스레드 예외 처리
-            _application.DispatcherUnhandledException += HandleDispatcherUnhandledException;
+            // Application이 null인 경우 (테스트 환경) 처리
+            if (_application != null)
+            {
+                // UI 스레드 예외 처리
+                _application.DispatcherUnhandledException += HandleDispatcherUnhandledException;
+            }
             
             // 모든 스레드 예외 처리
             AppDomain.CurrentDomain.UnhandledException += HandleAppDomainUnhandledException;
@@ -39,7 +45,11 @@ namespace AutoCapture.Wpf.Services.Implementations
 
         public void UnregisterGlobalHandlers()
         {
-            _application.DispatcherUnhandledException -= HandleDispatcherUnhandledException;
+            if (_application != null)
+            {
+                _application.DispatcherUnhandledException -= HandleDispatcherUnhandledException;
+            }
+            
             AppDomain.CurrentDomain.UnhandledException -= HandleAppDomainUnhandledException;
             TaskScheduler.UnobservedTaskException -= HandleTaskSchedulerUnobservedException;
             
@@ -51,8 +61,15 @@ namespace AutoCapture.Wpf.Services.Implementations
             if (exception == null)
                 return;
 
+            // 테스트 모드에서는 다이얼로그를 표시하지 않음
+            if (IsTestMode)
+            {
+                _logger.Information("Test mode: Skipping error dialog for exception {ExceptionType}", exception.GetType().Name);
+                return;
+            }
+
             // UI 스레드에서 실행되도록 보장
-            if (!_application.Dispatcher.CheckAccess())
+            if (!_application?.Dispatcher.CheckAccess() ?? false)
             {
                 _application.Dispatcher.Invoke(() => HandleException(exception, canContinue, canRestart));
                 return;
@@ -101,7 +118,7 @@ namespace AutoCapture.Wpf.Services.Implementations
             }
         }
 
-        private void HandleTaskSchedulerUnobservedException(object sender, UnobservedTaskExceptionEventArgs e)
+        private void HandleTaskSchedulerUnobservedException(object? sender, UnobservedTaskExceptionEventArgs e)
         {
             _logger.Error(e.Exception, "비동기 작업에서 관찰되지 않은 예외 발생");
 
@@ -114,6 +131,12 @@ namespace AutoCapture.Wpf.Services.Implementations
 
         private void ShowFallbackErrorMessage(Exception originalException, Exception dialogException)
         {
+            if (IsTestMode)
+            {
+                _logger.Error("Test mode: Skipping fallback error message");
+                return;
+            }
+
             var detailedMessage = $"오류 표시 중 문제가 발생했습니다.\n\n" +
                                 $"원본 오류: {originalException.Message}\n\n" +
                                 $"다이얼로그 오류: {dialogException.GetType().Name}: {dialogException.Message}\n\n" +
@@ -124,6 +147,13 @@ namespace AutoCapture.Wpf.Services.Implementations
 
         private void ShowTerminatingErrorMessage(Exception? exception)
         {
+            if (IsTestMode)
+            {
+                _logger.Fatal("Test mode: Skipping terminating error message for exception {ExceptionType}", 
+                    exception?.GetType().Name ?? "Unknown");
+                return;
+            }
+
             var message = exception != null 
                 ? $"치명적인 오류가 발생했습니다.\n\n{ErrorMessages.GetUserFriendlyMessage(exception)}\n\n프로그램을 종료합니다.\n\n자세한 정보는 logs 폴더의 크래시 로그를 확인하세요."
                 : "치명적인 오류가 발생했습니다. 프로그램을 종료합니다.";

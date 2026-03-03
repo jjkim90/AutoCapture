@@ -7,5 +7,6 @@ namespace AutoCapture.Wpf.Services.Interfaces
         void RegisterGlobalHandlers();
         void UnregisterGlobalHandlers();
         void HandleException(Exception exception, bool canContinue = true, bool canRestart = true);
+        bool IsTestMode { get; set; }
     }
 }
