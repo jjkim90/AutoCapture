@@ -1,12 +1,15 @@
 ﻿using AutoCapture.Wpf.Models;
+using AutoCapture.Wpf.Models.Messages;
 using AutoCapture.Wpf.ViewModels.Base;
 using AutoCapture.Wpf.ViewModels.Interfaces;
 using AutoCapture.Wpf.Services.Interfaces;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Shell;
 
 namespace AutoCapture.Wpf.ViewModels
 {
@@ -78,6 +81,9 @@ namespace AutoCapture.Wpf.ViewModels
                 
                 StatusMessage = "매크로 실행 중...";
                 OnPropertyChanged(nameof(IsRunning));
+                
+                // 작업 표시줄 상태 변경 메시지 전송
+                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Running));
                 
                 // 메인 윈도우 최소화
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -152,6 +158,9 @@ namespace AutoCapture.Wpf.ViewModels
                 MacroState.Status = MacroStatus.Stopping;
                 StatusMessage = "매크로 중지 중...";
                 
+                // 작업 표시줄 중지 상태 메시지 전송
+                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Stopping));
+                
                 // 매크로 엔진 중지
                 _cancellationTokenSource?.Cancel();
                 await _macroEngine.StopAsync();
@@ -159,6 +168,9 @@ namespace AutoCapture.Wpf.ViewModels
                 MacroState.Status = MacroStatus.Idle;
                 MacroState.EndTime = DateTime.Now;
                 StatusMessage = "매크로 중지됨";
+                
+                // 작업 표시줄 상태 초기화 메시지 전송
+                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Idle));
                 
                 _logger.Information("매크로 중지됨");
             }
@@ -187,6 +199,11 @@ namespace AutoCapture.Wpf.ViewModels
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 UpdateProgress(e.CurrentCount);
+                
+                // 작업 표시줄 진행률 메시지 전송
+                var progressPercent = (double)e.CurrentCount / e.TotalCount * 100;
+                WeakReferenceMessenger.Default.Send(
+                    new ProgressChangedMessage(progressPercent, TaskbarItemProgressState.Normal));
             });
         }
         
@@ -196,6 +213,9 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 MacroState.Status = MacroStatus.Completed;
                 MacroState.EndTime = DateTime.Now;
+                
+                // 작업 표시줄 상태 완료 메시지 전송
+                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Completed));
                 
                 // 성공/실패 상태에 따른 메시지 구성
                 var failedCount = e.TotalAttempted - e.TotalCaptured;
@@ -234,6 +254,11 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 MacroState.Status = MacroStatus.Error;
                 MacroState.LastError = e.Exception.Message;
+                
+                // 작업 표시줄 오류 상태 메시지 전송
+                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Error));
+                WeakReferenceMessenger.Default.Send(
+                    new ProgressChangedMessage(100, TaskbarItemProgressState.Error));
                 
                 // 사용자 친화적 에러 메시지
                 var userMessage = ErrorMessages.GetUserFriendlyMessage(e.Exception);
