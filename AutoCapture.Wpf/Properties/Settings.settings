@@ -8,5 +8,8 @@
     <Setting Name="LastFileNamePrefix" Type="System.String" Scope="User">
       <Value Profile="(Default)">capture</Value>
     </Setting>
+    <Setting Name="LastAutoInputKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Space</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

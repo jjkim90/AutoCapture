@@ -52,11 +52,7 @@ namespace AutoCapture.Wpf.ViewModels
                 {
                     Settings.SaveFolderPath = value;
                     OnPropertyChanged();
-                    
-                    // 변경된 경로를 Settings에 저장
-                    Properties.Settings.Default.LastSaveFolderPath = value;
-                    Properties.Settings.Default.Save();
-                    _logger.Information("저장 폴더 경로 저장됨: {FolderPath}", value);
+                    SaveSettings();
                 }
             }
         }
@@ -70,6 +66,7 @@ namespace AutoCapture.Wpf.ViewModels
                 {
                     Settings.AutoInputKey = value;
                     OnPropertyChanged();
+                    SaveSettings();
                 }
             }
         }
@@ -107,6 +104,12 @@ namespace AutoCapture.Wpf.ViewModels
             _logger = logger;
             SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync);
             
+            // 설정 복원
+            LoadSettings();
+        }
+
+        private void LoadSettings()
+        {
             // 마지막 사용한 저장 폴더 복원
             var lastPath = Properties.Settings.Default.LastSaveFolderPath;
             if (!string.IsNullOrWhiteSpace(lastPath) && Directory.Exists(lastPath))
@@ -118,6 +121,24 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 SaveFolderPath = string.Empty;
             }
+            
+            // 마지막 사용한 자동 입력 키 복원
+            var lastKey = Properties.Settings.Default.LastAutoInputKey;
+            if (!string.IsNullOrWhiteSpace(lastKey))
+            {
+                AutoInputKey = lastKey;
+                _logger.Information("마지막 자동 입력 키 복원: {Key}", AutoInputKey);
+            }
+            // 첫 실행 시 또는 저장된 값이 없을 때 기본값은 "Space"
+            // Settings의 기본값이 AutoInputKey = "Space"로 설정되어 있음
+        }
+
+        private void SaveSettings()
+        {
+            Properties.Settings.Default.LastSaveFolderPath = SaveFolderPath;
+            Properties.Settings.Default.LastAutoInputKey = AutoInputKey;
+            Properties.Settings.Default.Save();
+            _logger.Information("설정 저장됨 - 폴더: {FolderPath}, 키: {Key}", SaveFolderPath, AutoInputKey);
         }
 
         private async Task SelectFolderAsync()

@@ -21,6 +21,7 @@ namespace AutoCapture.Wpf.Controls
         private Button _customKeyButton = null!;
         private Button _spaceButton = null!;
         private Button _rightArrowButton = null!;
+        private Button _noneButton = null!;
 
         public KeySelectionControl()
         {
@@ -60,27 +61,19 @@ namespace AutoCapture.Wpf.Controls
                 _displayTextBox.SetValue(hintProperty, "선택된 키가 여기에 표시됩니다");
             }
 
-            _displayTextBox.SetBinding(TextBox.TextProperty, new System.Windows.Data.Binding(nameof(SelectedKey))
+            var binding = new System.Windows.Data.Binding(nameof(SelectedKey))
             {
                 Source = this,
-                Mode = System.Windows.Data.BindingMode.OneWay
-            });
+                Mode = System.Windows.Data.BindingMode.OneWay,
+                Converter = Application.Current.FindResource("KeyDisplayConverter") as System.Windows.Data.IValueConverter
+            };
+            _displayTextBox.SetBinding(TextBox.TextProperty, binding);
 
             Grid.SetRow(_displayTextBox, 1);
             grid.Children.Add(_displayTextBox);
 
             // 버튼 패널
             var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal };
-
-            // 커스텀 키 입력 버튼
-            _customKeyButton = new Button
-            {
-                Content = "커스텀 키 입력",
-                Style = Application.Current.FindResource("MaterialDesignRaisedButton") as Style,
-                Margin = new Thickness(0, 0, 8, 0)
-            };
-            _customKeyButton.Click += OnCustomKeyButtonClick;
-            buttonPanel.Children.Add(_customKeyButton);
 
             // Space 키 버튼
             _spaceButton = new Button
@@ -97,10 +90,31 @@ namespace AutoCapture.Wpf.Controls
             {
                 Content = "→",
                 Style = Application.Current.FindResource("MaterialDesignOutlinedButton") as Style,
-                ToolTip = "오른쪽 화살표 키"
+                ToolTip = "오른쪽 화살표 키",
+                Margin = new Thickness(0, 0, 8, 0)
             };
             _rightArrowButton.Click += (s, e) => SelectedKey = "Right";
             buttonPanel.Children.Add(_rightArrowButton);
+
+            // 없음 버튼
+            _noneButton = new Button
+            {
+                Content = "없음",
+                Style = Application.Current.FindResource("MaterialDesignOutlinedButton") as Style,
+                ToolTip = "자동 입력 사용 안 함",
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            _noneButton.Click += (s, e) => SelectedKey = string.Empty;
+            buttonPanel.Children.Add(_noneButton);
+
+            // 커스텀 키 입력 버튼
+            _customKeyButton = new Button
+            {
+                Content = "커스텀 키 입력",
+                Style = Application.Current.FindResource("MaterialDesignRaisedButton") as Style
+            };
+            _customKeyButton.Click += OnCustomKeyButtonClick;
+            buttonPanel.Children.Add(_customKeyButton);
 
             Grid.SetRow(buttonPanel, 2);
             grid.Children.Add(buttonPanel);

@@ -46,5 +46,17 @@ namespace AutoCapture.Wpf.Properties {
                 this["LastFileNamePrefix"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Space")]
+        public string LastAutoInputKey {
+            get {
+                return ((string)(this["LastAutoInputKey"]));
+            }
+            set {
+                this["LastAutoInputKey"] = value;
+            }
+        }
     }
 }
