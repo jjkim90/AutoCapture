@@ -13,6 +13,7 @@ namespace AutoCapture.Wpf.ViewModels
     public partial class CaptureSettingsViewModel : ViewModelBase, ICaptureSettingsViewModel
     {
         private readonly ILogger _logger;
+        private readonly Properties.Settings _preferences;
         
         [ObservableProperty]
         private CaptureSettings _settings = new();
@@ -99,9 +100,12 @@ namespace AutoCapture.Wpf.ViewModels
 
         public ICommand SelectFolderCommand { get; }
 
-        public CaptureSettingsViewModel(ILogger logger)
+        public CaptureSettingsViewModel(ILogger logger) : this(logger, Properties.Settings.Default) { }
+
+        internal CaptureSettingsViewModel(ILogger logger, Properties.Settings preferences)
         {
             _logger = logger;
+            _preferences = preferences;
             SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync);
             
             // 설정 복원
@@ -110,34 +114,16 @@ namespace AutoCapture.Wpf.ViewModels
 
         private void LoadSettings()
         {
-            // 마지막 사용한 저장 폴더 복원
-            var lastPath = Properties.Settings.Default.LastSaveFolderPath;
-            if (!string.IsNullOrWhiteSpace(lastPath) && Directory.Exists(lastPath))
-            {
-                SaveFolderPath = lastPath;
-                _logger.Information("마지막 저장 폴더 복원: {FolderPath}", SaveFolderPath);
-            }
-            else
-            {
-                SaveFolderPath = string.Empty;
-            }
-            
-            // 마지막 사용한 자동 입력 키 복원
-            var lastKey = Properties.Settings.Default.LastAutoInputKey;
-            if (!string.IsNullOrWhiteSpace(lastKey))
-            {
-                AutoInputKey = lastKey;
-                _logger.Information("마지막 자동 입력 키 복원: {Key}", AutoInputKey);
-            }
-            // 첫 실행 시 또는 저장된 값이 없을 때 기본값은 "Space"
-            // Settings의 기본값이 AutoInputKey = "Space"로 설정되어 있음
+            var path = _preferences.LastSaveFolderPath;
+            Settings.SaveFolderPath = Directory.Exists(path) ? path : string.Empty;
+            Settings.AutoInputKey = _preferences.LastAutoInputKey ?? "Space";
         }
 
         private void SaveSettings()
         {
-            Properties.Settings.Default.LastSaveFolderPath = SaveFolderPath;
-            Properties.Settings.Default.LastAutoInputKey = AutoInputKey;
-            Properties.Settings.Default.Save();
+            _preferences.LastSaveFolderPath = SaveFolderPath;
+            _preferences.LastAutoInputKey = AutoInputKey;
+            _preferences.Save();
             _logger.Information("설정 저장됨 - 폴더: {FolderPath}, 키: {Key}", SaveFolderPath, AutoInputKey);
         }
 

@@ -10,10 +10,37 @@ namespace AutoCapture.Tests.ViewModels
         private readonly Mock<ILogger> _mockLogger;
         private readonly CaptureSettingsViewModel _viewModel;
 
+        private readonly string _key = Guid.NewGuid().ToString("N");
+
+        private CaptureSettingsViewModel Open() => new(_mockLogger.Object, new Wpf.Properties.Settings { SettingsKey = _key });
+
         public CaptureSettingsViewModelTests()
         {
             _mockLogger = new Mock<ILogger>();
-            _viewModel = new CaptureSettingsViewModel(_mockLogger.Object);
+            _viewModel = Open();
+        }
+
+        [Theory]
+        [InlineData("Right")]
+        [InlineData("")]
+        public void Reopen_RestoresFolderAndKey(string key)
+        {
+            var folder = Directory.CreateTempSubdirectory();
+            try
+            {
+                _viewModel.SaveFolderPath = folder.FullName;
+                _viewModel.AutoInputKey = key;
+                var reopened = Open();
+                Assert.Equal(folder.FullName, reopened.SaveFolderPath);
+                Assert.Equal(key, reopened.AutoInputKey);
+            }
+            finally
+            {
+                folder.Delete();
+            }
+            var missingFolder = Open();
+            Assert.Empty(missingFolder.SaveFolderPath);
+            Assert.Equal(key, missingFolder.AutoInputKey);
         }
 
         [Fact]
@@ -147,7 +174,7 @@ namespace AutoCapture.Tests.ViewModels
         public void DefaultValues_AreCorrect()
         {
             // Arrange & Act
-            var newViewModel = new CaptureSettingsViewModel(new Mock<ILogger>().Object);
+            var newViewModel = Open();
 
             // Assert
             Assert.Equal(10, newViewModel.CaptureCount);
