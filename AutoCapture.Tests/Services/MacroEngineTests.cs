@@ -25,6 +25,31 @@ namespace AutoCapture.Tests.Services
         }
 
         [Fact]
+        public async Task FailedSecondSave_PreservesFirstPageAndStopsBeforeNextInput()
+        {
+            var settings = new CaptureSettings { CaptureCount = 3, IntervalSeconds = 1, AutoInputKey = "Right", SaveAsPdf = true };
+            _mockScreenCaptureService.SetupSequence(s => s.CaptureAndSaveAsync(
+                It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync("first.png").ReturnsAsync((string?)null);
+            MacroErrorEventArgs? error = null;
+            _macroEngine.Error += (_, e) => error = e;
+            await _macroEngine.StartAsync(settings, new CaptureArea(0, 0, 10, 10));
+            Assert.Contains("요청 3장, 시도 2장, 저장 1장", error?.Message);
+            _mockInputService.Verify(s => s.SendKeyWithRandomTimingAsync("Right"), Times.Once);
+            _mockScreenCaptureService.Verify(s => s.SaveAsPdfAsync(
+                It.IsAny<List<string>>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task SinglePage_SavesWithoutAdvancing()
+        {
+            _mockScreenCaptureService.Setup(s => s.CaptureAndSaveAsync(
+                It.IsAny<CaptureArea>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync("one.png");
+            await _macroEngine.StartAsync(new CaptureSettings { CaptureCount = 1 }, new CaptureArea(0, 0, 10, 10));
+            _mockInputService.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task StartAsync_ValidSettings_CompletesSuccessfully()
         {
             // Arrange
@@ -60,7 +85,7 @@ namespace AutoCapture.Tests.Services
                 Times.Exactly(3));
             _mockInputService.Verify(
                 x => x.SendKeyWithRandomTimingAsync("Right"), 
-                Times.Exactly(3));
+                Times.Exactly(2));
         }
 
         [Fact]

@@ -10,7 +10,7 @@ namespace AutoCapture.Wpf.Services.Implementations
         private readonly ILogger _logger;
         private readonly IScreenCaptureService _screenCaptureService;
         private readonly IInputService _inputService;
-        
+
         private CancellationTokenSource? _cancellationTokenSource;
         private Task? _macroTask;
         private readonly Random _random = new();
@@ -40,29 +40,44 @@ namespace AutoCapture.Wpf.Services.Implementations
 
             _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _macroTask = RunMacroAsync(settings, area, _cancellationTokenSource.Token);
-            
+
             await _macroTask;
         }
 
         private async Task RunMacroAsync(CaptureSettings settings, CaptureArea area, CancellationToken cancellationToken)
         {
             var capturedFiles = new List<string>();
-            var errors = new List<MacroErrorInfo>();
+            int attempted = 0;
+            string operation = "시작 대기";
             var startTime = DateTime.Now;
+
+            void Finish(bool cancelled)
+            {
+                Completed?.Invoke(this, new MacroCompletedEventArgs
+                {
+                    Requested = settings.CaptureCount,
+                    TotalAttempted = attempted,
+                    TotalCaptured = capturedFiles.Count,
+                    CapturedFiles = capturedFiles,
+                    ElapsedTime = DateTime.Now - startTime,
+                    StopLocation = cancelled ? operation : null,
+                    WasCancelled = cancelled
+                });
+            }
 
             try
             {
                 _logger.Information("매크로 실행 시작: {Settings}", settings);
-                
+
                 // 첫 캡처 전 초기 대기 시간 (창 최소화 후 안정화)
                 await Task.Delay(2000, cancellationToken);
                 _logger.Information("초기 대기 완료, 캡처 시작");
-                
+
                 // 메모리 사용량 초기 로깅
                 var initialMemory = GC.GetTotalMemory(false);
                 _logger.Information("매크로 시작 메모리: {MemoryMB:F2}MB", initialMemory / 1024.0 / 1024.0);
-                
-                for (int i = 1; i <= settings.CaptureCount && !cancellationToken.IsCancellationRequested; i++)
+
+                for (int i = 1; i <= settings.CaptureCount; i++)
                 {
                     await _pauseSemaphore.WaitAsync(cancellationToken);
                     try
@@ -78,94 +93,47 @@ namespace AutoCapture.Wpf.Services.Implementations
                         _pauseSemaphore.Release();
                     }
 
-                    // 진행 상황 알림
+                    operation = $"{i}장 저장";
+                    attempted = i;
+                    var filePath = await _screenCaptureService.CaptureAndSaveAsync(
+                        area, settings.SaveFolderPath, settings.FileNamePrefix);
+                    if (filePath == null)
+                        throw new System.IO.IOException("재시도 후에도 화면을 저장할 수 없습니다.");
+
+                    capturedFiles.Add(filePath);
                     ProgressChanged?.Invoke(this, new MacroProgressEventArgs
                     {
-                        CurrentCount = i,
+                        CurrentCount = capturedFiles.Count,
                         TotalCount = settings.CaptureCount,
-                        Message = $"캡처 {i}/{settings.CaptureCount} 진행 중..."
+                        Message = $"{i}/{settings.CaptureCount}장 저장 완료"
                     });
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    // 화면 캡처 (키 입력보다 먼저)
-                    try
+                    // 메모리 모니터링 및 정리
+                    if (i % 50 == 0 || MemoryHelper.IsMemoryPressureHigh())
                     {
-                        var filePath = await _screenCaptureService.CaptureAndSaveAsync(
-                            area, 
-                            settings.SaveFolderPath, 
-                            settings.FileNamePrefix);
-                            
-                        if (filePath != null)
+                        var currentUsage = MemoryHelper.GetCurrentMemoryUsageMB();
+                        _logger.Information("현재 메모리 사용량 (캡처 {Count}): {MemoryMB:F2}MB", i, currentUsage);
+
+                        if (MemoryHelper.IsMemoryPressureHigh())
                         {
-                            capturedFiles.Add(filePath);
-                        }
-                        else
-                        {
-                            _logger.Warning("캡처 실패 (캡처 {Count}): 화면 캡처 반환값 null", i);
-                            errors.Add(new MacroErrorInfo
+                            _logger.Warning("메모리 사용량이 높습니다. GC 실행...");
+                            var (beforeMB, afterMB) = MemoryHelper.PerformGarbageCollection();
+                            _logger.Information("메모리 정리 완료: {BeforeMB:F2}MB -> {AfterMB:F2}MB", beforeMB, afterMB);
+
+                            // 메모리 압박이 여전히 높으면 잠시 대기
+                            if (MemoryHelper.IsMemoryPressureHigh(1500))
                             {
-                                CaptureIndex = i,
-                                ErrorType = "CaptureFailure",
-                                ErrorMessage = "화면 캡처에 실패했습니다.",
-                                OccurredAt = DateTime.Now,
-                                IsRecoverable = true
-                            });
-                        }
-                        
-                        // 메모리 모니터링 및 정리
-                        if (i % 50 == 0 || MemoryHelper.IsMemoryPressureHigh())
-                        {
-                            var currentUsage = MemoryHelper.GetCurrentMemoryUsageMB();
-                            _logger.Information("현재 메모리 사용량 (캡처 {Count}): {MemoryMB:F2}MB", i, currentUsage);
-                            
-                            if (MemoryHelper.IsMemoryPressureHigh())
-                            {
-                                _logger.Warning("메모리 사용량이 높습니다. GC 실행...");
-                                var (beforeMB, afterMB) = MemoryHelper.PerformGarbageCollection();
-                                _logger.Information("메모리 정리 완료: {BeforeMB:F2}MB -> {AfterMB:F2}MB", beforeMB, afterMB);
-                                
-                                // 메모리 압박이 여전히 높으면 잠시 대기
-                                if (MemoryHelper.IsMemoryPressureHigh(1500))
-                                {
-                                    _logger.Warning("메모리 압박이 계속됩니다. 5초 대기...");
-                                    await Task.Delay(5000, cancellationToken);
-                                }
+                                _logger.Warning("메모리 압박이 계속됩니다. 5초 대기...");
+                                await Task.Delay(5000, cancellationToken);
                             }
                         }
                     }
-                    catch (OutOfMemoryException oomEx)
-                    {
-                        _logger.Error(oomEx, "메모리 부족 (캡처 {Count})", i);
-                        errors.Add(new MacroErrorInfo
-                        {
-                            CaptureIndex = i,
-                            ErrorType = "OutOfMemoryException",
-                            ErrorMessage = "메모리가 부족합니다. 다른 프로그램을 종료하거나 캡처 범위를 줄여주세요.",
-                            OccurredAt = DateTime.Now,
-                            IsRecoverable = false
-                        });
-                        
-                        // 메모리 부족 시 안전한 중단
-                        throw;
-                    }
-                    catch (Exception captureEx)
-                    {
-                        _logger.Error(captureEx, "캡처 실패 (캡처 {Count})", i);
-                        errors.Add(new MacroErrorInfo
-                        {
-                            CaptureIndex = i,
-                            ErrorType = captureEx.GetType().Name,
-                            ErrorMessage = captureEx.Message,
-                            OccurredAt = DateTime.Now,
-                            IsRecoverable = true
-                        });
-                        
-                        // 캡처 실패 시 Error 이벤트 발생
-                        Error?.Invoke(this, new MacroErrorEventArgs(captureEx, $"캡처 {i} 실패"));
-                    }
 
                     // 키 입력 (캡처 후에 실행 - 랜덤 타이밍)
-                    if (!string.IsNullOrEmpty(settings.AutoInputKey))
+                    if (i < settings.CaptureCount && !string.IsNullOrEmpty(settings.AutoInputKey))
                     {
+                        operation = $"{i}장 저장 후 페이지 전환";
                         await Task.Delay(_random.Next(100, 301), cancellationToken); // 캡처 후 랜덤 대기
                         await _inputService.SendKeyWithRandomTimingAsync(settings.AutoInputKey);
                     }
@@ -173,13 +141,14 @@ namespace AutoCapture.Wpf.Services.Implementations
                     // 다음 캡처까지 대기 (마지막 캡처가 아닌 경우)
                     if (i < settings.CaptureCount)
                     {
+                        operation = $"{i + 1}장 대기";
                         var delayMs = settings.IntervalSeconds * 1000;
                         // 더 넓은 랜덤 범위: -50% ~ +100%
                         var minRandom = -(int)(delayMs * 0.5);
                         var maxRandom = (int)(delayMs * 1.0);
                         var randomDelay = _random.Next(minRandom, maxRandom + 1);
                         var totalDelay = Math.Max(1000, delayMs + randomDelay); // 최소 1초
-                        
+
                         await Task.Delay(totalDelay, cancellationToken);
                     }
                 }
@@ -187,31 +156,24 @@ namespace AutoCapture.Wpf.Services.Implementations
                 // PDF 저장 (설정된 경우)
                 if (settings.SaveAsPdf && capturedFiles.Count > 0)
                 {
+                    operation = "PDF 생성";
                     await _screenCaptureService.SaveAsPdfAsync(capturedFiles, settings.SaveFolderPath, settings.FileNamePrefix);
                 }
 
-                // 완료 이벤트
-                var elapsedTime = DateTime.Now - startTime;
-                Completed?.Invoke(this, new MacroCompletedEventArgs
-                {
-                    TotalCaptured = capturedFiles.Count,
-                    TotalAttempted = settings.CaptureCount,
-                    ElapsedTime = elapsedTime,
-                    CapturedFiles = capturedFiles,
-                    Errors = errors.Count > 0 ? errors : null
-                });
-
-                _logger.Information("매크로 실행 완료. 성공: {Success}/{Total}, 실패: {Failed}, 소요 시간: {Time}", 
-                    capturedFiles.Count, settings.CaptureCount, errors.Count, elapsedTime);
+                cancellationToken.ThrowIfCancellationRequested();
+                Finish(false);
+                _logger.Information("매크로 완료: {Count}장", capturedFiles.Count);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _logger.Information("매크로 실행이 취소되었습니다.");
+                Finish(true);
+                _logger.Information("매크로 중지: {Count}장 저장", capturedFiles.Count);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "매크로 실행 중 오류 발생");
-                Error?.Invoke(this, new MacroErrorEventArgs(ex, "매크로 실행 중 오류가 발생했습니다."));
+                var summary = $"{operation} 실패 · 요청 {settings.CaptureCount}장, 시도 {attempted}장, 저장 {capturedFiles.Count}장";
+                _logger.Error(ex, "{Summary}", summary);
+                Error?.Invoke(this, new MacroErrorEventArgs(ex, summary));
             }
             finally
             {
@@ -227,7 +189,7 @@ namespace AutoCapture.Wpf.Services.Implementations
 
             _logger.Information("매크로 중지 요청");
             _cancellationTokenSource?.Cancel();
-            
+
             if (_macroTask != null)
             {
                 try

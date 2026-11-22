@@ -155,7 +155,7 @@ namespace AutoCapture.Tests.Services
                 async () => await _screenCaptureService.SaveAsPdfAsync(emptyList, _testPath, prefix));
         }
 
-        [Fact(Skip = "QuestPDF requires native dependencies not available in test environment")]
+        [Fact]
         public async Task SaveAsPdfAsync_NonExistentImage_ThrowsException()
         {
             // Arrange

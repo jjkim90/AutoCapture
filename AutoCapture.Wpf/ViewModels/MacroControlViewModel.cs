@@ -167,7 +167,7 @@ namespace AutoCapture.Wpf.ViewModels
                 
                 MacroState.Status = MacroStatus.Idle;
                 MacroState.EndTime = DateTime.Now;
-                StatusMessage = "매크로 중지됨";
+                // 완료 이벤트가 저장한 중지 요약을 유지한다.
                 
                 // 작업 표시줄 상태 초기화 메시지 전송
                 WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Idle));
@@ -211,23 +211,13 @@ namespace AutoCapture.Wpf.ViewModels
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
-                MacroState.Status = MacroStatus.Completed;
+                MacroState.Status = e.WasCancelled ? MacroStatus.Idle : MacroStatus.Completed;
                 MacroState.EndTime = DateTime.Now;
-                
-                // 작업 표시줄 상태 완료 메시지 전송
-                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Completed));
-                
-                // 성공/실패 상태에 따른 메시지 구성
-                var failedCount = e.TotalAttempted - e.TotalCaptured;
-                if (failedCount > 0)
-                {
-                    StatusMessage = $"매크로 완료 - 성공: {e.TotalCaptured}개, 실패: {failedCount}개, 소요시간: {e.ElapsedTime:mm\\:ss}";
-                }
-                else
-                {
-                    StatusMessage = $"매크로 완료 - 캡처: {e.TotalCaptured}개, 소요시간: {e.ElapsedTime:mm\\:ss}";
-                }
-                
+                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroState.Status));
+                var outcome = e.WasCancelled ? $"{e.StopLocation} 중 사용자 중지" : "완료";
+                StatusMessage = $"{outcome} · 요청 {e.Requested}장, 시도 {e.TotalAttempted}장, 저장 {e.TotalCaptured}장";
+                if (e.WasCancelled) return;
+
                 // 메인 윈도우 복원 (선택사항)
                 var mainWindow = System.Windows.Application.Current.MainWindow;
                 if (mainWindow != null && mainWindow.WindowState == System.Windows.WindowState.Minimized)
@@ -258,14 +248,14 @@ namespace AutoCapture.Wpf.ViewModels
                 // 작업 표시줄 오류 상태 메시지 전송
                 WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Error));
                 WeakReferenceMessenger.Default.Send(
-                    new ProgressChangedMessage(100, TaskbarItemProgressState.Error));
+                    new ProgressChangedMessage(100.0 * CurrentCaptureCount / Math.Max(1, MacroState.TotalCaptureCount), TaskbarItemProgressState.Error));
                 
                 // 사용자 친화적 에러 메시지
                 var userMessage = ErrorMessages.GetUserFriendlyMessage(e.Exception);
-                StatusMessage = $"오류: {userMessage}";
+                StatusMessage = $"{e.Message} · {userMessage}";
                 
                 // 에러 팔업 표시
-                ShowErrorNotification(e.Exception);
+                ShowErrorNotification(e.Exception, e.Message);
                 
                 _logger.Error(e.Exception, "매크로 오류: {Message}", e.Message);
             });
@@ -308,14 +298,14 @@ namespace AutoCapture.Wpf.ViewModels
             }
         }
         
-        private void ShowErrorNotification(Exception exception)
+        private void ShowErrorNotification(Exception exception, string? summary)
         {
             try
             {
                 var userMessage = ErrorMessages.GetUserFriendlyMessage(exception);
                 var advice = ErrorMessages.GetRecoveryAdvice(exception);
                 
-                var fullMessage = $"{userMessage}\n\n해결 방법:\n{advice}";
+                var fullMessage = $"{summary}\n{userMessage}\n\n해결 방법:\n{advice}";
                 
                 // 에러 알림 창 표시
                 var notificationWindow = new Views.NotificationWindow(fullMessage, isError: true);

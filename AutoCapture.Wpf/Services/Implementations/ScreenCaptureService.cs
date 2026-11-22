@@ -61,7 +61,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                         _logger.Information("화면 캡처 및 저장 성공 (시도 {Attempt}): {FilePath}", attempt, filePath);
                         return filePath;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OutOfMemoryException && ex is not OperationCanceledException)
                     {
                         _logger.Warning(ex, "화면 캡처 실패 (시도 {Attempt}/{MaxAttempts})", attempt, maxRetries);
                         
@@ -91,10 +91,13 @@ namespace AutoCapture.Wpf.Services.Implementations
                     var pdfFileName = $"{fileNamePrefix}_collection_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
                     var pdfPath = Path.Combine(folderPath, pdfFileName);
                     
-                    // 유효한 이미지 경로만 필터링
-                    var validImagePaths = imagePaths.Where(File.Exists).ToList();
-                    _logger.Information("PDF 생성 시작: {ValidCount}/{TotalCount} 이미지", 
-                        validImagePaths.Count, imagePaths.Count);
+                    if (imagePaths.Count == 0)
+                        throw new ArgumentException("PDF에 넣을 이미지가 없습니다.", nameof(imagePaths));
+                    foreach (var path in imagePaths)
+                    {
+                        if (!File.Exists(path))
+                            throw new FileNotFoundException("PDF 원본 이미지를 찾을 수 없습니다.", path);
+                    }
 
                     // 메모리 효율을 위해 청크 단위로 처리
                     const int chunkSize = 50;
@@ -102,9 +105,9 @@ namespace AutoCapture.Wpf.Services.Implementations
                     {
                         Document.Create(container =>
                         {
-                            for (int i = 0; i < validImagePaths.Count; i++)
+                            for (int i = 0; i < imagePaths.Count; i++)
                             {
-                                var imagePath = validImagePaths[i];
+                                var imagePath = imagePaths[i];
                                 
                                 container.Page(page =>
                                 {
@@ -119,7 +122,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                                 if ((i + 1) % chunkSize == 0)
                                 {
                                     _logger.Information("PDF 생성 진행: {Processed}/{Total} 이미지 처리됨", 
-                                        i + 1, validImagePaths.Count);
+                                        i + 1, imagePaths.Count);
                                     GC.Collect();
                                 }
                             }

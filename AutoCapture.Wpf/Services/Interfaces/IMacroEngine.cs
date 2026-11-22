@@ -28,6 +28,9 @@ namespace AutoCapture.Wpf.Services.Interfaces
     {
         public int TotalCaptured { get; set; }
         public int TotalAttempted { get; set; }
+        public int Requested { get; set; }
+        public string? StopLocation { get; set; }
+        public bool WasCancelled { get; set; }
         public TimeSpan ElapsedTime { get; set; }
         public List<string>? CapturedFiles { get; set; }
         public List<MacroErrorInfo>? Errors { get; set; }
