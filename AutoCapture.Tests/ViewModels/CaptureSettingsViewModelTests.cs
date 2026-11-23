@@ -43,6 +43,20 @@ namespace AutoCapture.Tests.ViewModels
             Assert.Equal(key, missingFolder.AutoInputKey);
         }
 
+        // 설정 파일(user.config)을 함께 쓰므로 이 클래스 안에서 순서대로 실행한다.
+        [Fact]
+        public void EstimatedDurationText_ChangesWithCountAndInterval()
+        {
+            var changed = new List<string?>();
+            _viewModel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            _viewModel.CaptureCount = 50;
+            _viewModel.IntervalSeconds = 2;
+
+            Assert.Equal("50장 · 예상 약 2분 5초", _viewModel.EstimatedDurationText);
+            Assert.Equal(2, changed.Count(name => name == nameof(CaptureSettingsViewModel.EstimatedDurationText)));
+        }
+
         [Fact]
         public void CaptureCount_SetValue_RaisesPropertyChanged()
         {

@@ -36,21 +36,6 @@ namespace AutoCapture.Tests.ViewModels
             Assert.Equal(expected, CaptureSettingsViewModel.FormatDuration(TimeSpan.FromSeconds(seconds)));
         }
 
-        [Fact]
-        public void EstimatedDurationText_ChangesWithCountAndInterval()
-        {
-            var viewModel = new CaptureSettingsViewModel(Mock.Of<ILogger>(),
-                new Wpf.Properties.Settings { SettingsKey = Guid.NewGuid().ToString("N") });
-            var changed = new List<string?>();
-            viewModel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-
-            viewModel.CaptureCount = 50;
-            viewModel.IntervalSeconds = 2;
-
-            Assert.Equal("50장 · 예상 약 2분 5초", viewModel.EstimatedDurationText);
-            Assert.Equal(2, changed.Count(name => name == nameof(CaptureSettingsViewModel.EstimatedDurationText)));
-        }
-
         [Theory]
         [InlineData("42", 10, 42)]
         [InlineData(" 7 ", 10, 7)]
