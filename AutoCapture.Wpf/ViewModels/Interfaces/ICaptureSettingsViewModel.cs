@@ -11,7 +11,8 @@ namespace AutoCapture.Wpf.ViewModels.Interfaces
         string AutoInputKey { get; set; }
         bool SaveAsPdf { get; set; }
         string FileNamePrefix { get; set; }
-        
+        string EstimatedDurationText { get; }
+
         ICommand SelectFolderCommand { get; }
         bool Validate();
     }

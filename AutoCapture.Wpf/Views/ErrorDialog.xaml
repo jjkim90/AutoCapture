@@ -3,21 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="오류 발생"
-        Height="500" Width="600"
+        Width="560" SizeToContent="Height" MaxHeight="640"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-        TextElement.FontWeight="Regular"
-        TextElement.FontSize="14"
-        TextOptions.TextFormattingMode="Ideal"
-        TextOptions.TextRenderingMode="Auto"
-        Background="{DynamicResource MaterialDesignPaper}"
-        FontFamily="{DynamicResource MaterialDesignFont}">
-    
-    <Grid Margin="20">
+        ResizeMode="NoResize">
+
+    <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -26,73 +18,74 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 헤더 제목 -->
-        <TextBlock Grid.Row="0"
-                   Text="예기치 않은 오류가 발생했습니다"
-                   Style="{StaticResource MaterialDesignHeadline5TextBlock}"
-                   Margin="0,0,0,20"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+            <TextBlock Style="{StaticResource IconText}" Text="&#xEA39;" FontSize="20"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}" Margin="0,0,10,0"/>
+            <TextBlock Text="예기치 않은 오류가 발생했습니다"
+                       FontSize="20" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </StackPanel>
 
         <!-- 사용자 친화적 메시지 -->
-        <Border Grid.Row="1" 
-                Background="{DynamicResource MaterialDesignDivider}"
-                CornerRadius="4"
-                Padding="15"
-                Margin="0,0,0,10">
+        <Border Grid.Row="1"
+                Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                CornerRadius="6"
+                Padding="14"
+                Margin="0,0,0,12">
             <TextBlock x:Name="UserFriendlyMessageText"
                        TextWrapping="Wrap"
-                       FontSize="16"/>
+                       FontSize="14"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
         </Border>
 
         <!-- 복구 조언 -->
-        <Expander Grid.Row="2" 
+        <Expander Grid.Row="2"
                   Header="해결 방법"
-                  Margin="0,0,0,10">
+                  IsExpanded="True"
+                  Margin="0,0,0,8">
             <TextBlock x:Name="RecoveryAdviceText"
                        TextWrapping="Wrap"
-                       Margin="20,10,0,10"
+                       Margin="4,8,0,8"
                        LineHeight="22"/>
         </Expander>
 
         <!-- 상세 오류 정보 -->
-        <Expander Grid.Row="3" 
+        <Expander Grid.Row="3"
                   Header="상세 정보"
-                  Margin="0,0,0,10">
+                  Margin="0,0,0,8">
             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="200">
                 <TextBox x:Name="DetailedErrorText"
                          IsReadOnly="True"
                          TextWrapping="Wrap"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         FontFamily="Consolas"
+                         FontFamily="Cascadia Mono, Consolas"
                          FontSize="12"
-                         Margin="20,10,0,10"/>
+                         Margin="4,8,0,8"/>
             </ScrollViewer>
         </Expander>
 
         <!-- 버튼 영역 -->
-        <StackPanel Grid.Row="4" 
-                    Orientation="Horizontal" 
+        <StackPanel Grid.Row="4"
+                    Orientation="Horizontal"
                     HorizontalAlignment="Right"
-                    Margin="0,10,0,0">
-            
+                    Margin="0,12,0,0">
+
             <Button x:Name="CopyToClipboardButton"
                     Content="오류 정보 복사"
-                    Style="{StaticResource MaterialDesignFlatButton}"
-                    Margin="0,0,10,0"
+                    Margin="0,0,8,0"
                     Click="CopyToClipboardButton_Click"
                     ToolTip="오류 정보를 클립보드로 복사합니다"/>
 
             <Button x:Name="RestartButton"
                     Content="다시 시작"
-                    Style="{StaticResource MaterialDesignFlatButton}"
-                    Margin="0,0,10,0"
+                    Margin="0,0,8,0"
                     Click="RestartButton_Click"
                     ToolTip="프로그램을 다시 시작합니다"/>
 
             <Button x:Name="CloseButton"
                     Content="{Binding CloseButtonText}"
+                    MinWidth="80"
                     IsDefault="True"
-                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Style="{DynamicResource AccentButtonStyle}"
                     Click="CloseButton_Click"/>
         </StackPanel>
     </Grid>

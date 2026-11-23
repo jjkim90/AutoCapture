@@ -16,8 +16,7 @@ namespace AutoCapture.Wpf.Views
             // 에러 메시지인 경우 스타일 변경
             if (isError)
             {
-                NotificationBorder.Background = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#FFE91E63"));
+                AccentDot.Fill = (System.Windows.Media.Brush)FindResource("HudErrorBrush");
                 TitleText.Text = "오류 발생";
             }
             

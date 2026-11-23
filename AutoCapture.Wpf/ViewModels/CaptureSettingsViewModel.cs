@@ -26,6 +26,7 @@ namespace AutoCapture.Wpf.ViewModels
                 if (Settings.CaptureCount != value)
                 {
                     Settings.CaptureCount = value;
+                    OnPropertyChanged(nameof(EstimatedDurationText));
                     OnPropertyChanged();
                 }
             }
@@ -39,9 +40,34 @@ namespace AutoCapture.Wpf.ViewModels
                 if (Settings.IntervalSeconds != value)
                 {
                     Settings.IntervalSeconds = value;
+                    OnPropertyChanged(nameof(EstimatedDurationText));
                     OnPropertyChanged();
                 }
             }
+        }
+
+        public string EstimatedDurationText =>
+            $"{CaptureCount}장 · 예상 약 {FormatDuration(EstimateDuration(CaptureCount, IntervalSeconds))}";
+
+        /// <summary>
+        /// 엔진의 실행 흐름에 맞춘 예상 소요 시간. 시작 전 2초를 기다리고,
+        /// 마지막 장을 뺀 각 장 사이에 간격의 -50%~+100% 무작위 대기(평균 125%)를 둔다.
+        /// </summary>
+        internal static TimeSpan EstimateDuration(int count, int intervalSeconds)
+        {
+            if (count <= 0 || intervalSeconds <= 0) return TimeSpan.Zero;
+            var seconds = 2 + (count - 1) * Math.Max(1.0, intervalSeconds * 1.25);
+            return TimeSpan.FromSeconds(Math.Ceiling(seconds));
+        }
+
+        internal static string FormatDuration(TimeSpan duration)
+        {
+            var total = (int)Math.Ceiling(duration.TotalSeconds);
+            if (total < 60) return $"{total}초";
+            if (total < 3600)
+                return total % 60 == 0 ? $"{total / 60}분" : $"{total / 60}분 {total % 60}초";
+            var minutes = total / 60 % 60;
+            return minutes == 0 ? $"{total / 3600}시간" : $"{total / 3600}시간 {minutes}분";
         }
 
         public string SaveFolderPath

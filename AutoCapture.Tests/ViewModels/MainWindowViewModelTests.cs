@@ -9,6 +9,7 @@ using Xunit;
 
 namespace AutoCapture.Tests.ViewModels
 {
+    [Collection(MessengerCollection.Name)]
     public class MainWindowViewModelTests : IDisposable
     {
         private readonly MainWindowViewModel _viewModel;

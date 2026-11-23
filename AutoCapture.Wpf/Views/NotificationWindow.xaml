@@ -3,55 +3,58 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="NotificationWindow" 
-        Height="220" Width="420"
+        Title="AutoCapture 알림"
+        Height="240" Width="420"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
         ShowInTaskbar="False"
+        ShowActivated="False"
         WindowStartupLocation="Manual">
-    
+
     <Border x:Name="NotificationBorder"
-            Background="#FF2196F3" 
-            CornerRadius="8" 
-            Margin="10">
+            Background="{StaticResource HudBackgroundBrush}"
+            BorderBrush="{StaticResource HudEdgeBrush}"
+            BorderThickness="1"
+            CornerRadius="16"
+            Margin="12">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.5"/>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.35"/>
         </Border.Effect>
-        
-        <Grid Margin="20">
+
+        <Grid Margin="18,16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            
-            <TextBlock Grid.Row="0" 
-                       x:Name="TitleText"
-                       Text="화면 캡처 완료!" 
-                       FontSize="18"
-                       FontWeight="Bold"
-                       Foreground="White"/>
-            
-            <TextBlock Grid.Row="1" 
-                       x:Name="MessageText"
-                       Text="메시지"
-                       FontSize="14"
-                       Foreground="White"
-                       Margin="0,12,0,12"
-                       VerticalAlignment="Center"
-                       TextWrapping="Wrap"/>
-            
-            <Button Grid.Row="2" 
-                    Content="확인" 
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <Ellipse x:Name="AccentDot" Width="10" Height="10" Margin="0,0,10,0"
+                         VerticalAlignment="Center" Fill="{StaticResource HudSuccessBrush}"/>
+                <TextBlock x:Name="TitleText"
+                           Text="화면 캡처 완료"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource HudForegroundBrush}"/>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" Margin="20,8,0,8" VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="MessageText"
+                           Text="메시지"
+                           FontSize="13"
+                           LineHeight="19"
+                           Foreground="{StaticResource HudMutedBrush}"
+                           TextWrapping="Wrap"/>
+            </ScrollViewer>
+
+            <Button Grid.Row="2"
+                    Content="확인"
                     HorizontalAlignment="Right"
-                    Style="{StaticResource MaterialDesignFlatButton}"
-                    Foreground="White"
-                    Click="CloseButton_Click"
-                    Margin="0,8,0,0"/>
+                    Style="{StaticResource HudButton}"
+                    Click="CloseButton_Click"/>
         </Grid>
     </Border>
 </Window>

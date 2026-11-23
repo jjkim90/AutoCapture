@@ -8,6 +8,7 @@ using System.Windows;
 
 namespace AutoCapture.Tests.ViewModels
 {
+    [Collection(MessengerCollection.Name)]
     public class MacroControlViewModelTests
     {
         private readonly Mock<ILogger> _mockLogger;

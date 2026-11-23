@@ -1,0 +1,18 @@
+<UserControl x:Class="AutoCapture.Wpf.Controls.KeySelectionControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource SegmentHost}">
+        <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="SpaceOption" Style="{StaticResource SegmentButton}"
+                         Content="Space" ToolTip="스페이스 바" Click="Preset_Click" Tag="Space" />
+            <RadioButton x:Name="RightOption" Style="{StaticResource SegmentButton}"
+                         Content="→" ToolTip="오른쪽 화살표 키" Click="Preset_Click" Tag="Right" />
+            <RadioButton x:Name="NoneOption" Style="{StaticResource SegmentButton}"
+                         Content="없음" ToolTip="키를 보내지 않고 주기적으로 저장" Click="Preset_Click" Tag="" />
+            <RadioButton x:Name="CustomOption" Style="{StaticResource SegmentButton}"
+                         Click="Custom_Click" ToolTip="다른 키를 눌러서 지정">
+                <TextBlock x:Name="CustomText" Text="직접" MaxWidth="96" TextTrimming="CharacterEllipsis" />
+            </RadioButton>
+        </StackPanel>
+    </Border>
+</UserControl>

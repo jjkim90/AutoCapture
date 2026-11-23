@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
 using System.Windows.Media;
 
 namespace AutoCapture.Wpf.Controls
@@ -42,7 +43,7 @@ namespace AutoCapture.Wpf.Controls
                 
                 CapturedKey = keyName;
                 KeyDisplayText.Text = keyName;
-                KeyDisplayText.Foreground = Application.Current.FindResource("MaterialDesignBody") as Brush;
+                KeyDisplayText.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorPrimaryBrush");
                 
                 // 잠시 대기 후 창 닫기
                 Dispatcher.BeginInvoke(new Action(() =>

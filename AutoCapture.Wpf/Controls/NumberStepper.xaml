@@ -1,0 +1,23 @@
+<UserControl x:Class="AutoCapture.Wpf.Controls.NumberStepper"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <RepeatButton x:Name="DecreaseButton" Style="{StaticResource StepperButton}"
+                      Click="Decrease_Click" ToolTip="줄이기">
+            <TextBlock Style="{StaticResource IconText}" Text="&#xE738;" FontSize="12" />
+        </RepeatButton>
+        <TextBox x:Name="Input" Width="64" Margin="4,0" TextAlignment="Right" VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 InputScope="Number"
+                 LostKeyboardFocus="Input_LostKeyboardFocus"
+                 PreviewKeyDown="Input_PreviewKeyDown" />
+        <RepeatButton x:Name="IncreaseButton" Style="{StaticResource StepperButton}"
+                      Click="Increase_Click" ToolTip="늘리기">
+            <TextBlock Style="{StaticResource IconText}" Text="&#xE710;" FontSize="12" />
+        </RepeatButton>
+        <TextBlock Text="{Binding Unit, ElementName=Root}" MinWidth="18" Margin="6,0,0,0"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+    </StackPanel>
+</UserControl>

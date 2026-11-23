@@ -29,7 +29,17 @@ namespace AutoCapture.Wpf.ViewModels
         private string _statusMessage = "준비";
 
         public bool IsRunning => MacroState.IsRunning;
+        public bool IsActive => MacroState.Status is MacroStatus.Running or MacroStatus.Paused or MacroStatus.Stopping;
         public int CurrentCaptureCount => MacroState.CurrentCaptureCount;
+        public int TotalCaptureCount => MacroState.TotalCaptureCount;
+
+        private void NotifyRunState()
+        {
+            OnPropertyChanged(nameof(IsRunning));
+            OnPropertyChanged(nameof(IsActive));
+            OnPropertyChanged(nameof(CurrentCaptureCount));
+            OnPropertyChanged(nameof(TotalCaptureCount));
+        }
 
         public ICommand StartMacroCommand { get; }
         public ICommand StopMacroCommand { get; }
@@ -63,7 +73,7 @@ namespace AutoCapture.Wpf.ViewModels
                     ? $"일시정지 · {CurrentCaptureCount}장 저장 · 입력 대상 창으로 돌아가 F7로 재개"
                     : $"재개 · {CurrentCaptureCount}장 저장";
                 WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroState.Status));
-                OnPropertyChanged(nameof(IsRunning));
+                NotifyRunState();
                 ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
             });
             _macroEngine.Completed += OnMacroCompleted;
@@ -106,7 +116,7 @@ namespace AutoCapture.Wpf.ViewModels
                 
                 StatusMessage = "매크로 실행 중...";
                 ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
-                OnPropertyChanged(nameof(IsRunning));
+                NotifyRunState();
                 
                 // 작업 표시줄 상태 변경 메시지 전송
                 WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Running));
@@ -170,7 +180,7 @@ namespace AutoCapture.Wpf.ViewModels
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
                 
-                OnPropertyChanged(nameof(IsRunning));
+                NotifyRunState();
                 OnPropertyChanged(nameof(CurrentCaptureCount));
                 ((IRelayCommand)StartMacroCommand).NotifyCanExecuteChanged();
                 ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
@@ -183,6 +193,7 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 _logger.Information("매크로 중지 요청");
                 MacroState.Status = MacroStatus.Stopping;
+                NotifyRunState();
                 StatusMessage = "매크로 중지 중...";
                 
                 // 작업 표시줄 중지 상태 메시지 전송
@@ -208,7 +219,7 @@ namespace AutoCapture.Wpf.ViewModels
             }
             finally
             {
-                OnPropertyChanged(nameof(IsRunning));
+                NotifyRunState();
                 ((IRelayCommand)StartMacroCommand).NotifyCanExecuteChanged();
                 ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
             }
@@ -218,6 +229,7 @@ namespace AutoCapture.Wpf.ViewModels
         {
             MacroState.CurrentCaptureCount = currentCount;
             OnPropertyChanged(nameof(CurrentCaptureCount));
+            OnPropertyChanged(nameof(TotalCaptureCount));
             StatusMessage = $"캡처 진행 중: {currentCount}/{MacroState.TotalCaptureCount}";
         }
         
@@ -241,6 +253,7 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 MacroState.Status = e.WasCancelled ? MacroStatus.Idle : MacroStatus.Completed;
                 MacroState.EndTime = DateTime.Now;
+                NotifyRunState();
                 WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroState.Status));
                 var outcome = e.WasCancelled ? $"{e.StopLocation} 중 사용자 중지" : "완료";
                 StatusMessage = $"{outcome} · 요청 {e.Requested}장, 시도 {e.TotalAttempted}장, 저장 {e.TotalCaptured}장";
@@ -272,6 +285,7 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 MacroState.Status = MacroStatus.Error;
                 MacroState.LastError = e.Exception.Message;
+                NotifyRunState();
                 
                 // 작업 표시줄 오류 상태 메시지 전송
                 WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Error));
