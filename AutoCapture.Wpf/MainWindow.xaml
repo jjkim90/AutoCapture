@@ -106,7 +106,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="페이지 수" Style="{StaticResource RowLabel}" VerticalAlignment="Center"/>
                             <controls:NumberStepper Grid.Column="1" Value="{Binding CaptureCount}"
-                                                    Minimum="1" Maximum="500" Unit="장"
+                                                    Minimum="1" Maximum="500" DefaultValue="10" Unit="장"
                                                     AutomationProperties.Name="페이지 수"/>
                         </Grid>
                         <Border Style="{StaticResource RowDivider}"/>
@@ -118,7 +118,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="넘김 간격" Style="{StaticResource RowLabel}" VerticalAlignment="Center"/>
                             <controls:NumberStepper Grid.Column="1" Value="{Binding IntervalSeconds}"
-                                                    Minimum="1" Maximum="60" Unit="초"
+                                                    Minimum="1" Maximum="60" DefaultValue="5" Unit="초"
                                                     AutomationProperties.Name="넘김 간격(초)"/>
                         </Grid>
                         <Border Style="{StaticResource RowDivider}"/>

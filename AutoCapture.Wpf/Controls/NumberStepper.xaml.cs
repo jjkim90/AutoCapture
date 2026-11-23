@@ -1,12 +1,14 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 
 namespace AutoCapture.Wpf.Controls
 {
     /// <summary>
-    /// 정수 입력 상자와 증감 버튼. 범위를 벗어난 값은 경계로 맞춘다.
+    /// 정수 입력 상자와 증감 버튼. 범위를 벗어난 값은 경계로 맞추고,
+    /// 지우기(X) 버튼이나 빈 칸은 기본값으로 되돌린다.
     /// </summary>
     public partial class NumberStepper : UserControl
     {
@@ -22,6 +24,10 @@ namespace AutoCapture.Wpf.Controls
         public static readonly DependencyProperty MaximumProperty =
             DependencyProperty.Register(nameof(Maximum), typeof(int), typeof(NumberStepper),
                 new PropertyMetadata(100, (d, _) => ((NumberStepper)d).Refresh()));
+
+        public static readonly DependencyProperty DefaultValueProperty =
+            DependencyProperty.Register(nameof(DefaultValue), typeof(int), typeof(NumberStepper),
+                new PropertyMetadata(0));
 
         public static readonly DependencyProperty UnitProperty =
             DependencyProperty.Register(nameof(Unit), typeof(string), typeof(NumberStepper),
@@ -45,6 +51,12 @@ namespace AutoCapture.Wpf.Controls
             set => SetValue(MaximumProperty, value);
         }
 
+        public int DefaultValue
+        {
+            get => (int)GetValue(DefaultValueProperty);
+            set => SetValue(DefaultValueProperty, value);
+        }
+
         public string Unit
         {
             get => (string)GetValue(UnitProperty);
@@ -54,16 +66,38 @@ namespace AutoCapture.Wpf.Controls
         public NumberStepper()
         {
             InitializeComponent();
+            // Fluent 테마의 지우기(X) 버튼은 공개되지 않은 EditingCommands.Clear를 보낸다.
+            // 글자만 지우는 대신 기본값으로 되돌린다. 이 명령이 바뀌어도 빈 칸은 Commit에서 기본값이 된다.
+            CommandManager.AddPreviewExecutedHandler(Input, OnPreviewExecuted);
             Refresh();
         }
 
-        /// <summary>입력 문자열을 범위 안의 정수로 바꾼다. 숫자가 아니면 현재 값을 유지한다.</summary>
-        internal static int Parse(string? text, int current, int minimum, int maximum)
+        /// <summary>
+        /// 입력 문자열을 범위 안의 정수로 바꾼다. 빈 칸이면 기본값, 숫자가 아니면 현재 값을 쓴다.
+        /// </summary>
+        internal static int Parse(string? text, int current, int fallback, int minimum, int maximum)
         {
-            var value = int.TryParse(text?.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out var parsed)
-                ? parsed
-                : current;
+            int value;
+            if (string.IsNullOrWhiteSpace(text)) value = fallback;
+            else if (!int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out value)) value = current;
             return Math.Clamp(value, minimum, Math.Max(minimum, maximum));
+        }
+
+        private void OnPreviewExecuted(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (!IsClearCommand(e.Command)) return;
+            e.Handled = true;
+            ResetToDefault();
+        }
+
+        internal static bool IsClearCommand(ICommand command) =>
+            command is RoutedUICommand { Name: "Clear" } routed && routed.OwnerType == typeof(EditingCommands);
+
+        internal void ResetToDefault()
+        {
+            Value = Math.Clamp(DefaultValue, Minimum, Math.Max(Minimum, Maximum));
+            Refresh();
+            Input.SelectAll();
         }
 
         private void Refresh()
@@ -76,7 +110,7 @@ namespace AutoCapture.Wpf.Controls
 
         private void Commit()
         {
-            var value = Parse(Input.Text, Value, Minimum, Maximum);
+            var value = Parse(Input.Text, Value, DefaultValue, Minimum, Maximum);
             if (value != Value) Value = value;
             else Refresh();
         }

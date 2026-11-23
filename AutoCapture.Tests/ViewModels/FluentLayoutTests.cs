@@ -37,16 +37,17 @@ namespace AutoCapture.Tests.ViewModels
         }
 
         [Theory]
-        [InlineData("42", 10, 42)]
-        [InlineData(" 7 ", 10, 7)]
-        [InlineData("0", 10, 1)]       // 최솟값으로 맞춤
-        [InlineData("9999", 10, 500)]  // 최댓값으로 맞춤
-        [InlineData("abc", 10, 10)]    // 숫자가 아니면 유지
-        [InlineData("", 10, 10)]
-        [InlineData(null, 10, 10)]
-        public void NumberStepper_Parse_ClampsToRange(string? text, int current, int expected)
+        [InlineData("42", 42)]
+        [InlineData(" 7 ", 7)]
+        [InlineData("0", 1)]        // 최솟값으로 맞춤
+        [InlineData("9999", 500)]   // 최댓값으로 맞춤
+        [InlineData("abc", 77)]     // 숫자가 아니면 현재 값 유지
+        [InlineData("", 10)]        // 비우면 기본값
+        [InlineData("  ", 10)]
+        [InlineData(null, 10)]
+        public void NumberStepper_Parse_ClampsToRangeAndFallsBackToDefault(string? text, int expected)
         {
-            Assert.Equal(expected, NumberStepper.Parse(text, current, 1, 500));
+            Assert.Equal(expected, NumberStepper.Parse(text, current: 77, fallback: 10, minimum: 1, maximum: 500));
         }
 
         [Theory]

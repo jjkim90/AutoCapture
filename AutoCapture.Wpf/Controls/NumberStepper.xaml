@@ -7,7 +7,7 @@
                       Click="Decrease_Click" ToolTip="줄이기">
             <TextBlock Style="{StaticResource IconText}" Text="&#xE738;" FontSize="12" />
         </RepeatButton>
-        <TextBox x:Name="Input" Width="64" Margin="4,0" TextAlignment="Right" VerticalAlignment="Center"
+        <TextBox x:Name="Input" Width="92" Margin="4,0" TextAlignment="Right" VerticalAlignment="Center"
                  VerticalContentAlignment="Center"
                  InputScope="Number"
                  LostKeyboardFocus="Input_LostKeyboardFocus"
