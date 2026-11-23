@@ -16,11 +16,14 @@ namespace AutoCapture.Tests.ViewModels
         private readonly Mock<ICaptureSettingsViewModel> _mockCaptureSettings;
         private readonly MacroControlViewModel _viewModel;
 
+        private readonly List<(string Message, bool Error)> _notifications = new();
+
         public MacroControlViewModelTests()
         {
             _mockLogger = new Mock<ILogger>();
             _mockMacroEngine = new Mock<IMacroEngine>();
             _mockAreaSelection = new Mock<IAreaSelectionViewModel>();
+            _mockAreaSelection.SetupGet(x => x.Target).Returns(Mock.Of<ICaptureTarget>(t => t.IsOpen));
             _mockCaptureSettings = new Mock<ICaptureSettingsViewModel>();
             
             // 기본 설정값
@@ -36,7 +39,7 @@ namespace AutoCapture.Tests.ViewModels
                 _mockLogger.Object,
                 _mockCaptureSettings.Object,
                 _mockAreaSelection.Object,
-                _mockMacroEngine.Object);
+                _mockMacroEngine.Object, (message, error) => _notifications.Add((message, error)));
         }
 
         [Fact]
@@ -83,7 +86,7 @@ namespace AutoCapture.Tests.ViewModels
             Assert.False(canExecute);
         }
 
-        [Fact(Skip = "Requires WPF Application context")]
+        [Fact]
         public void StartMacroCommand_Execute_CallsMacroEngine()
         {
             // Arrange
@@ -160,7 +163,7 @@ namespace AutoCapture.Tests.ViewModels
             Assert.Equal(3, _viewModel.CurrentCaptureCount);
         }
 
-        [Fact(Skip = "Requires WPF Application context")]
+        [Fact]
         public void MacroEngine_ProgressChanged_UpdatesViewModel()
         {
             // Arrange
@@ -179,28 +182,32 @@ namespace AutoCapture.Tests.ViewModels
             Assert.Equal(10, _viewModel.MacroState.TotalCaptureCount);
         }
 
-        [Fact(Skip = "Requires WPF Application context")]
+        [Fact]
         public void MacroEngine_Completed_ShowsNotification()
         {
             // Arrange
             var completedEventArgs = new MacroCompletedEventArgs
             {
+                TotalAttempted = 10,
+                Requested = 10,
                 TotalCaptured = 10,
                 ElapsedTime = TimeSpan.FromSeconds(30),
                 CapturedFiles = new List<string> { "file1.png", "file2.png" }
             };
 
-            // 실제 UI 표시는 테스트할 수 없으므로 이벤트 발생만 확인
+            // 알림은 테스트 수신기에 전달한다.
 
             // Act
             _mockMacroEngine.Raise(x => x.Completed += null, completedEventArgs);
+            Assert.False(Assert.Single(_notifications).Error);
+            Assert.Equal(MacroStatus.Completed, _viewModel.MacroState.Status);
 
             // Assert
             Assert.False(_viewModel.MacroState.IsRunning);
             Assert.Equal(0, _viewModel.CurrentCaptureCount);
         }
 
-        [Fact(Skip = "Requires WPF Application context")]
+        [Fact]
         public void MacroEngine_Error_UpdatesState()
         {
             // Arrange
@@ -208,6 +215,8 @@ namespace AutoCapture.Tests.ViewModels
 
             // Act
             _mockMacroEngine.Raise(x => x.Error += null, errorArgs);
+            Assert.True(Assert.Single(_notifications).Error);
+            Assert.Equal(MacroStatus.Error, _viewModel.MacroState.Status);
 
             // Assert
             Assert.False(_viewModel.MacroState.IsRunning);

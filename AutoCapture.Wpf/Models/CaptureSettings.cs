@@ -2,6 +2,7 @@
 {
     public class CaptureSettings
     {
+        public ICaptureTarget? Target { get; set; }
         public int CaptureCount { get; set; } = 10;
         public int IntervalSeconds { get; set; } = 5;
         public string SaveFolderPath { get; set; } = string.Empty;

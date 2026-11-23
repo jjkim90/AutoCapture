@@ -15,6 +15,9 @@ namespace AutoCapture.Wpf.ViewModels
         [ObservableProperty]
         private CaptureArea _captureArea = new();
 
+        [ObservableProperty]
+        private ICaptureTarget? _target;
+
         public int X => CaptureArea.X;
         public int Y => CaptureArea.Y;
         public int Width => CaptureArea.Width;
@@ -69,6 +72,7 @@ namespace AutoCapture.Wpf.ViewModels
                             (int)rect.Height
                         );
                         
+                        Target = Models.CaptureTarget.FromArea(CaptureArea);
                         _logger.Information("화면 영역 선택 완료: {Area}", CaptureArea);
                         OnPropertyChanged(nameof(X));
                         OnPropertyChanged(nameof(Y));
@@ -98,6 +102,7 @@ namespace AutoCapture.Wpf.ViewModels
 
         private void ClearSelection()
         {
+            Target = null;
             CaptureArea = new CaptureArea();
             _logger.Information("화면 영역 선택 초기화");
             OnPropertyChanged(nameof(X));

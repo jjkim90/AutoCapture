@@ -93,7 +93,10 @@ namespace AutoCapture.Wpf
             if (hotkeyService.RegisterHotkey(Key.F7, ModifierKeys.None, () =>
             {
                 logger.Information("F7 단축키 눌림");
-                if (macroControl.StartMacroCommand.CanExecute(null))
+                var engine = _serviceProvider!.GetRequiredService<IMacroEngine>();
+                if (engine.IsPaused)
+                    _ = engine.ResumeAsync();
+                else if (macroControl.StartMacroCommand.CanExecute(null))
                 {
                     macroControl.StartMacroCommand.Execute(null);
                 }

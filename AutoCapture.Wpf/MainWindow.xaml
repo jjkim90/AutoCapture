@@ -112,6 +112,8 @@
                                 </StackPanel>
                             </Button>
                         </Grid>
+                        <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="{Binding AreaSelection.Target.Title, StringFormat='입력 대상: {0}', FallbackValue='입력 대상: 영역 중앙의 창을 선택하세요'}"/>
                     </StackPanel>
                 </materialDesign:Card>
 
@@ -277,7 +279,7 @@
                         </Grid>
 
                         <!-- 단축키 안내 -->
-                        <TextBlock Text="단축키: F7 - 시작, F8 - 중지" 
+                        <TextBlock Text="단축키: F7 - 시작 / 대상 창에서 재개, F8 - 중지"
                                    Style="{StaticResource MaterialDesignCaptionTextBlock}"
                                    HorizontalAlignment="Center"
                                    Margin="0,16,0,0"

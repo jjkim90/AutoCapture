@@ -8,6 +8,8 @@ namespace AutoCapture.Wpf.Services.Interfaces
         event EventHandler<MacroCompletedEventArgs>? Completed;
         event EventHandler<MacroErrorEventArgs>? Error;
 
+        event EventHandler<bool>? PauseChanged;
+
         bool IsRunning { get; }
         bool IsPaused { get; }
 

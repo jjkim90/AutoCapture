@@ -16,6 +16,7 @@ namespace AutoCapture.Wpf.ViewModels
     public partial class MacroControlViewModel : ViewModelBase, IMacroControlViewModel
     {
         private readonly ILogger _logger;
+        private readonly Action<string, bool> _notify;
         private readonly ICaptureSettingsViewModel _captureSettings;
         private readonly IAreaSelectionViewModel _areaSelection;
         private readonly IMacroEngine _macroEngine;
@@ -38,7 +39,13 @@ namespace AutoCapture.Wpf.ViewModels
             ICaptureSettingsViewModel captureSettings,
             IAreaSelectionViewModel areaSelection,
             IMacroEngine macroEngine)
+            : this(logger, captureSettings, areaSelection, macroEngine,
+                (message, error) => new Views.NotificationWindow(message, error).Show()) { }
+
+        internal MacroControlViewModel(ILogger logger, ICaptureSettingsViewModel captureSettings,
+            IAreaSelectionViewModel areaSelection, IMacroEngine macroEngine, Action<string, bool> notify)
         {
+            _notify = notify;
             _logger = logger;
             _captureSettings = captureSettings;
             _areaSelection = areaSelection;
@@ -49,6 +56,16 @@ namespace AutoCapture.Wpf.ViewModels
             
             // MacroEngine 이벤트 구독
             _macroEngine.ProgressChanged += OnMacroProgressChanged;
+            _macroEngine.PauseChanged += (_, paused) => OnUi(() =>
+            {
+                MacroState.Status = paused ? MacroStatus.Paused : MacroStatus.Running;
+                StatusMessage = paused
+                    ? $"일시정지 · {CurrentCaptureCount}장 저장 · 입력 대상 창으로 돌아가 F7로 재개"
+                    : $"재개 · {CurrentCaptureCount}장 저장";
+                WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroState.Status));
+                OnPropertyChanged(nameof(IsRunning));
+                ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
+            });
             _macroEngine.Completed += OnMacroCompleted;
             _macroEngine.Error += OnMacroError;
             
@@ -57,9 +74,17 @@ namespace AutoCapture.Wpf.ViewModels
             _captureSettings.PropertyChanged += OnDependencyPropertyChanged;
         }
 
+        private static void OnUi(Action action)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess()) action();
+            else dispatcher.Invoke(action);
+        }
+
         private bool CanStartMacro()
         {
-            return MacroState.CanStart 
+            return (string.IsNullOrEmpty(_captureSettings.AutoInputKey) || _areaSelection.Target is { IsOpen: true })
+                && MacroState.CanStart
                 && _areaSelection.HasSelection 
                 && _captureSettings.Validate();
         }
@@ -80,15 +105,16 @@ namespace AutoCapture.Wpf.ViewModels
                 MacroState.TotalCaptureCount = _captureSettings.CaptureCount;
                 
                 StatusMessage = "매크로 실행 중...";
+                ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(IsRunning));
                 
                 // 작업 표시줄 상태 변경 메시지 전송
                 WeakReferenceMessenger.Default.Send(new MacroStatusChangedMessage(MacroStatus.Running));
                 
                 // 메인 윈도우 최소화
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                OnUi(() =>
                 {
-                    var mainWindow = System.Windows.Application.Current.MainWindow;
+                    var mainWindow = System.Windows.Application.Current?.MainWindow;
                     if (mainWindow != null && mainWindow.WindowState != System.Windows.WindowState.Minimized)
                     {
                         mainWindow.WindowState = System.Windows.WindowState.Minimized;
@@ -99,6 +125,7 @@ namespace AutoCapture.Wpf.ViewModels
                 // 캡처 설정 가져오기
                 var settings = new Models.CaptureSettings
                 {
+                    Target = _areaSelection.Target,
                     CaptureCount = _captureSettings.CaptureCount,
                     IntervalSeconds = _captureSettings.IntervalSeconds,
                     SaveFolderPath = _captureSettings.SaveFolderPath,
@@ -196,8 +223,9 @@ namespace AutoCapture.Wpf.ViewModels
         
         private void OnMacroProgressChanged(object? sender, MacroProgressEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            OnUi(() =>
             {
+                MacroState.TotalCaptureCount = e.TotalCount;
                 UpdateProgress(e.CurrentCount);
                 
                 // 작업 표시줄 진행률 메시지 전송
@@ -209,7 +237,7 @@ namespace AutoCapture.Wpf.ViewModels
         
         private void OnMacroCompleted(object? sender, MacroCompletedEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            OnUi(() =>
             {
                 MacroState.Status = e.WasCancelled ? MacroStatus.Idle : MacroStatus.Completed;
                 MacroState.EndTime = DateTime.Now;
@@ -219,7 +247,7 @@ namespace AutoCapture.Wpf.ViewModels
                 if (e.WasCancelled) return;
 
                 // 메인 윈도우 복원 (선택사항)
-                var mainWindow = System.Windows.Application.Current.MainWindow;
+                var mainWindow = System.Windows.Application.Current?.MainWindow;
                 if (mainWindow != null && mainWindow.WindowState == System.Windows.WindowState.Minimized)
                 {
                     mainWindow.WindowState = System.Windows.WindowState.Normal;
@@ -228,7 +256,7 @@ namespace AutoCapture.Wpf.ViewModels
                 }
                 
                 // 알림음 재생
-                System.Media.SystemSounds.Exclamation.Play();
+                if (mainWindow != null) System.Media.SystemSounds.Exclamation.Play();
                 
                 // Windows 알림 표시
                 ShowCompletionNotification(e.TotalCaptured, e.TotalAttempted, e.ElapsedTime, e.Errors);
@@ -240,7 +268,7 @@ namespace AutoCapture.Wpf.ViewModels
         
         private void OnMacroError(object? sender, MacroErrorEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            OnUi(() =>
             {
                 MacroState.Status = MacroStatus.Error;
                 MacroState.LastError = e.Exception.Message;
@@ -264,7 +292,7 @@ namespace AutoCapture.Wpf.ViewModels
         private void OnDependencyPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             // 영역 선택 또는 설정이 변경되면 커맨드 상태 업데이트
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            OnUi(() =>
             {
                 ((IRelayCommand)StartMacroCommand).NotifyCanExecuteChanged();
                 ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
@@ -287,8 +315,7 @@ namespace AutoCapture.Wpf.ViewModels
                 }
                 
                 // 사용자 정의 알림 창 표시
-                var notificationWindow = new Views.NotificationWindow(message);
-                notificationWindow.Show();
+                _notify(message, false);
                     
                 _logger.Information("작업 완료 알림 표시됨");
             }
@@ -308,8 +335,7 @@ namespace AutoCapture.Wpf.ViewModels
                 var fullMessage = $"{summary}\n{userMessage}\n\n해결 방법:\n{advice}";
                 
                 // 에러 알림 창 표시
-                var notificationWindow = new Views.NotificationWindow(fullMessage, isError: true);
-                notificationWindow.Show();
+                _notify(fullMessage, true);
                 
                 _logger.Information("에러 알림 표시됨");
             }

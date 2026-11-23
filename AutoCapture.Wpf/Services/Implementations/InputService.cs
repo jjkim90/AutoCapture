@@ -10,10 +10,15 @@ namespace AutoCapture.Wpf.Services.Implementations
         private readonly IInputSimulator _simulator;
         private readonly Random _random;
 
-        public InputService(ILogger logger)
+        private readonly Func<int, Task> _delay;
+
+        public InputService(ILogger logger) : this(logger, new InputSimulator(), Task.Delay) { }
+
+        internal InputService(ILogger logger, IInputSimulator simulator, Func<int, Task> delay)
         {
             _logger = logger;
-            _simulator = new InputSimulator();
+            _simulator = simulator;
+            _delay = delay;
             _random = new Random();
         }
 
@@ -21,155 +26,67 @@ namespace AutoCapture.Wpf.Services.Implementations
         {
             await Task.Run(() =>
             {
-                try
-                {
-                    _logger.Debug("키 입력: {Key}", key);
-                    
-                    // 조합 키 처리 (Ctrl+, Alt+, Shift+)
-                    var parts = key.Split('+');
-                    if (parts.Length > 1)
-                    {
-                        var modifiers = new List<VirtualKeyCode>();
-                        var mainKey = parts[parts.Length - 1];
-                        
-                        // 수정자 키 확인
-                        for (int i = 0; i < parts.Length - 1; i++)
-                        {
-                            switch (parts[i].ToLower())
-                            {
-                                case "ctrl":
-                                    modifiers.Add(VirtualKeyCode.CONTROL);
-                                    break;
-                                case "alt":
-                                    modifiers.Add(VirtualKeyCode.MENU);
-                                    break;
-                                case "shift":
-                                    modifiers.Add(VirtualKeyCode.SHIFT);
-                                    break;
-                            }
-                        }
-                        
-                        // 조합 키 실행
-                        if (modifiers.Count > 0)
-                        {
-                            var keyCode = GetVirtualKeyCode(mainKey);
-                            if (keyCode != null)
-                            {
-                                _simulator.Keyboard.ModifiedKeyStroke(modifiers, keyCode.Value);
-                            }
-                            return;
-                        }
-                    }
-                    
-                    // 단일 키 처리
-                    var vkCode = GetVirtualKeyCode(key);
-                    if (vkCode != null)
-                    {
-                        _simulator.Keyboard.KeyPress(vkCode.Value);
-                    }
-                    else if (key.Length == 1)
-                    {
-                        _simulator.Keyboard.TextEntry(key);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "키 입력 실패: {Key}", key);
-                    throw;
-                }
+                _logger.Debug("키 입력: {Key}", key);
+                SendKey(key);
             });
         }
 
-        public async Task SendKeyWithRandomTimingAsync(string key)
+        public async Task SendKeyWithRandomTimingAsync(string key, Func<Task>? beforeInput = null)
         {
-            await Task.Run(async () =>
+            _logger.Debug("키 입력 (랜덤 타이밍): {Key}", key);
+            await _delay(_random.Next(20, 151)).ConfigureAwait(false);
+            if (beforeInput != null) await beforeInput().ConfigureAwait(false);
+            SendKey(key);
+        }
+
+        private void SendKey(string key)
+        {
+            // 조합 키 처리 (Ctrl+, Alt+, Shift+)
+            var parts = key.Split('+');
+            if (parts.Length > 1)
             {
-                try
+                var modifiers = new List<VirtualKeyCode>();
+                var mainKey = parts[parts.Length - 1];
+
+                // 수정자 키 확인
+                for (int i = 0; i < parts.Length - 1; i++)
                 {
-                    _logger.Debug("키 입력 (랜덤 타이밍): {Key}", key);
-                    
-                    // 조합 키 처리 (Ctrl+, Alt+, Shift+)
-                    var parts = key.Split('+');
-                    if (parts.Length > 1)
+                    switch (parts[i].ToLower())
                     {
-                        var modifiers = new List<VirtualKeyCode>();
-                        var mainKey = parts[parts.Length - 1];
-                        
-                        // 수정자 키 확인
-                        for (int i = 0; i < parts.Length - 1; i++)
-                        {
-                            switch (parts[i].ToLower())
-                            {
-                                case "ctrl":
-                                    modifiers.Add(VirtualKeyCode.CONTROL);
-                                    break;
-                                case "alt":
-                                    modifiers.Add(VirtualKeyCode.MENU);
-                                    break;
-                                case "shift":
-                                    modifiers.Add(VirtualKeyCode.SHIFT);
-                                    break;
-                            }
-                        }
-                        
-                        // 조합 키 실행 (랜덤 타이밍)
-                        if (modifiers.Count > 0)
-                        {
-                            var keyCode = GetVirtualKeyCode(mainKey);
-                            if (keyCode != null)
-                            {
-                                foreach (var modifier in modifiers)
-                                {
-                                    _simulator.Keyboard.KeyDown(modifier);
-                                }
-                                
-                                _simulator.Keyboard.KeyDown(keyCode.Value);
-                                
-                                // 실제 사람의 키 입력 패턴 모방
-                                var duration = _random.Next(100) < 5 
-                                    ? _random.Next(200, 301)  // 5% 확률로 긴 키 홀드
-                                    : _random.Next(20, 151);  // 95% 확률로 일반 키 홀드
-                                await Task.Delay(duration);
-                                
-                                _simulator.Keyboard.KeyUp(keyCode.Value);
-                                
-                                foreach (var modifier in modifiers.Reverse<VirtualKeyCode>())
-                                {
-                                    _simulator.Keyboard.KeyUp(modifier);
-                                }
-                            }
-                            return;
-                        }
+                        case "ctrl":
+                            modifiers.Add(VirtualKeyCode.CONTROL);
+                            break;
+                        case "alt":
+                            modifiers.Add(VirtualKeyCode.MENU);
+                            break;
+                        case "shift":
+                            modifiers.Add(VirtualKeyCode.SHIFT);
+                            break;
                     }
-                    
-                    // 단일 키 처리 (랜덤 타이밍)
-                    var vkCode = GetVirtualKeyCode(key);
-                    if (vkCode != null)
-                    {
-                        _simulator.Keyboard.KeyDown(vkCode.Value);
-                        
-                        // 실제 사람의 키 입력 패턴 모방
-                        var duration = _random.Next(100) < 5 
-                            ? _random.Next(200, 301)  // 5% 확률로 긴 키 홀드
-                            : _random.Next(20, 151);  // 95% 확률로 일반 키 홀드
-                        await Task.Delay(duration);
-                        
-                        _simulator.Keyboard.KeyUp(vkCode.Value);
-                    }
-                    else if (key.Length == 1)
-                    {
-                        _simulator.Keyboard.TextEntry(key);
-                    }
-                    
-                    // 키 입력 후 짧은 대기 (10-50ms)
-                    await Task.Delay(_random.Next(10, 51));
                 }
-                catch (Exception ex)
+
+                // 조합 키 실행
+                if (modifiers.Count > 0)
                 {
-                    _logger.Error(ex, "키 입력 실패 (랜덤 타이밍): {Key}", key);
-                    throw;
+                    var keyCode = GetVirtualKeyCode(mainKey);
+                    if (keyCode != null)
+                    {
+                        _simulator.Keyboard.ModifiedKeyStroke(modifiers, keyCode.Value);
+                    }
+                    return;
                 }
-            });
+            }
+
+            // 단일 키 처리
+            var vkCode = GetVirtualKeyCode(key);
+            if (vkCode != null)
+            {
+                _simulator.Keyboard.KeyPress(vkCode.Value);
+            }
+            else if (key.Length == 1)
+            {
+                _simulator.Keyboard.TextEntry(key);
+            }
         }
 
         public async Task SendKeysAsync(params string[] keys)
@@ -177,7 +94,7 @@ namespace AutoCapture.Wpf.Services.Implementations
             foreach (var key in keys)
             {
                 await SendKeyAsync(key);
-                await Task.Delay(50); // 키 입력 간 짧은 딜레이
+                await _delay(50); // 키 입력 간 짧은 딜레이
             }
         }
 

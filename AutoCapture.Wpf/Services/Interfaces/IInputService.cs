@@ -3,7 +3,7 @@
     public interface IInputService
     {
         Task SendKeyAsync(string key);
-        Task SendKeyWithRandomTimingAsync(string key);
+        Task SendKeyWithRandomTimingAsync(string key, Func<Task>? beforeInput = null);
         Task SendKeysAsync(params string[] keys);
         Task MoveMouseAsync(int x, int y);
         Task ClickAsync();

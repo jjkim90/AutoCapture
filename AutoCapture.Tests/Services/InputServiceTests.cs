@@ -2,7 +2,6 @@ using AutoCapture.Wpf.Services.Implementations;
 using AutoCapture.Wpf.Services.Interfaces;
 using Moq;
 using Serilog;
-using System.Diagnostics;
 using WindowsInput;
 
 namespace AutoCapture.Tests.Services
@@ -12,10 +11,19 @@ namespace AutoCapture.Tests.Services
         private readonly Mock<ILogger> _mockLogger;
         private readonly IInputService _inputService;
 
+        private readonly Mock<IKeyboardSimulator> _keyboard = new();
+        private readonly List<int> _delays = new();
+
         public InputServiceTests()
         {
             _mockLogger = new Mock<ILogger>();
-            _inputService = new InputService(_mockLogger.Object);
+            var simulator = new Mock<IInputSimulator>();
+            simulator.SetupGet(s => s.Keyboard).Returns(_keyboard.Object);
+            _inputService = new InputService(_mockLogger.Object, simulator.Object, ms =>
+            {
+                _delays.Add(ms);
+                return Task.CompletedTask;
+            });
         }
 
         [Fact]
@@ -72,43 +80,17 @@ namespace AutoCapture.Tests.Services
         {
             // Arrange
             var key = "A";
-            var stopwatch = new Stopwatch();
-
-            // Act
-            stopwatch.Start();
             await _inputService.SendKeyWithRandomTimingAsync(key);
-            stopwatch.Stop();
-
-            // Assert
-            _mockLogger.Verify(
-                x => x.Debug("키 입력 (랜덤 타이밍): {Key}", key),
-                Times.Once);
-            
-            // 실행 시간이 최소 지연 시간보다 길어야 함
-            Assert.True(stopwatch.ElapsedMilliseconds >= 10, 
-                $"Expected delay >= 10ms, but was {stopwatch.ElapsedMilliseconds}ms");
+            Assert.InRange(Assert.Single(_delays), 20, 150);
+            _keyboard.Verify(k => k.KeyPress(VirtualKeyCode.VK_A), Times.Once);
         }
 
         [Fact]
-        public async Task SendKeyWithRandomTimingAsync_MultipleExecutions_HasVariableDelay()
+        public async Task SendKeyWithRandomTimingAsync_ChecksTargetBeforeInput()
         {
-            // Arrange
-            var key = "A";
-            var executionTimes = new List<long>();
-
-            // Act - 같은 키를 여러 번 실행하여 시간 측정
-            for (int i = 0; i < 5; i++)
-            {
-                var stopwatch = Stopwatch.StartNew();
-                await _inputService.SendKeyWithRandomTimingAsync(key);
-                stopwatch.Stop();
-                executionTimes.Add(stopwatch.ElapsedMilliseconds);
-            }
-
-            // Assert - 실행 시간이 모두 다른지 확인 (랜덤성 검증)
-            var distinctTimes = executionTimes.Distinct().Count();
-            Assert.True(distinctTimes > 1, 
-                "Expected variable execution times due to random delays, but all times were identical");
+            await Assert.ThrowsAsync<OperationCanceledException>(() =>
+                _inputService.SendKeyWithRandomTimingAsync("Right", () => throw new OperationCanceledException()));
+            _keyboard.VerifyNoOtherCalls();
         }
 
         [Fact]

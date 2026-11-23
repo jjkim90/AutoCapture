@@ -4,7 +4,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using Serilog;
 using System.Drawing;
-using System.Drawing.Imaging;
+using ImageFormat = System.Drawing.Imaging.ImageFormat;
 using System.IO;
 
 namespace AutoCapture.Wpf.Services.Implementations
@@ -13,13 +13,20 @@ namespace AutoCapture.Wpf.Services.Implementations
     {
         private readonly ILogger _logger;
 
+        private readonly Action<Graphics, CaptureArea> _copy;
+
         public ScreenCaptureService(ILogger logger)
+            : this(logger, (graphics, area) => graphics.CopyFromScreen(area.X, area.Y, 0, 0,
+                new System.Drawing.Size(area.Width, area.Height), CopyPixelOperation.SourceCopy)) { }
+
+        internal ScreenCaptureService(ILogger logger, Action<Graphics, CaptureArea> copy)
         {
+            _copy = copy;
             _logger = logger;
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
-        public async Task<string?> CaptureAndSaveAsync(CaptureArea area, string folderPath, string fileNamePrefix = "capture")
+        public async Task<string?> CaptureAndSaveAsync(CaptureArea area, string folderPath, string fileNamePrefix = "capture", Func<Task>? beforeCapture = null)
         {
             const int maxRetries = 3;
             const int retryDelayMs = 500;
@@ -38,30 +45,19 @@ namespace AutoCapture.Wpf.Services.Implementations
                             Directory.CreateDirectory(folderPath);
                         }
 
-                        // 파일 경로 생성
-                        var fileName = $"{fileNamePrefix}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-                        var filePath = Path.Combine(folderPath, fileName);
-
-                        // Bitmap을 using으로 감싸서 자동 Dispose 보장
-                        using (var bitmap = new Bitmap(area.Width, area.Height))
+                        using var bitmap = new Bitmap(area.Width, area.Height);
+                        using (var graphics = Graphics.FromImage(bitmap))
                         {
-                            using (var graphics = Graphics.FromImage(bitmap))
-                            {
-                                graphics.CopyFromScreen(
-                                    area.X, area.Y,
-                                    0, 0,
-                                    new System.Drawing.Size(area.Width, area.Height),
-                                    CopyPixelOperation.SourceCopy);
-                            }
-
-                            // 메모리 스트림 없이 직접 파일로 저장
-                            bitmap.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+                            if (beforeCapture != null) await beforeCapture();
+                            _copy(graphics, area);
                         }
+                        var filePath = WriteOutput(folderPath, fileNamePrefix, ".png",
+                            stream => bitmap.Save(stream, ImageFormat.Png));
 
                         _logger.Information("화면 캡처 및 저장 성공 (시도 {Attempt}): {FilePath}", attempt, filePath);
                         return filePath;
                     }
-                    catch (Exception ex) when (ex is not OutOfMemoryException && ex is not OperationCanceledException)
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.ExternalException)
                     {
                         _logger.Warning(ex, "화면 캡처 실패 (시도 {Attempt}/{MaxAttempts})", attempt, maxRetries);
                         
@@ -82,15 +78,41 @@ namespace AutoCapture.Wpf.Services.Implementations
             });
         }
 
+        private static string WriteOutput(string folder, string prefix, string extension, Action<Stream> write)
+        {
+            string stem = $"{prefix}_{DateTime.Now:yyyyMMdd_HHmmss}";
+            var temporary = Path.Combine(folder, Path.GetRandomFileName());
+            var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            try
+            {
+                using (stream)
+                {
+                    write(stream);
+                }
+                for (int index = 1; ; index++)
+                {
+                    var name = index == 1 ? stem : $"{stem}_{index:D3}";
+                    var path = Path.Combine(folder, name + extension);
+                    try
+                    {
+                        File.Move(temporary, path);
+                        return path;
+                    }
+                    catch (IOException) when (File.Exists(path))
+                    {
+                        // A previous capture already owns this timestamp.
+                    }
+                }
+            }
+            finally { File.Delete(temporary); }
+        }
+
         public async Task<string> SaveAsPdfAsync(List<string> imagePaths, string folderPath, string fileNamePrefix = "capture")
         {
             return await Task.Run(() =>
             {
                 try
                 {
-                    var pdfFileName = $"{fileNamePrefix}_collection_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
-                    var pdfPath = Path.Combine(folderPath, pdfFileName);
-                    
                     if (imagePaths.Count == 0)
                         throw new ArgumentException("PDF에 넣을 이미지가 없습니다.", nameof(imagePaths));
                     foreach (var path in imagePaths)
@@ -101,7 +123,7 @@ namespace AutoCapture.Wpf.Services.Implementations
 
                     // 메모리 효율을 위해 청크 단위로 처리
                     const int chunkSize = 50;
-                    using (var pdfStream = new FileStream(pdfPath, FileMode.Create, FileAccess.Write))
+                    var pdfPath = WriteOutput(folderPath, fileNamePrefix + "_collection", ".pdf", pdfStream =>
                     {
                         Document.Create(container =>
                         {
@@ -127,7 +149,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                                 }
                             }
                         }).GeneratePdf(pdfStream);
-                    }
+                    });
 
                     _logger.Information("PDF 생성 완료: {PdfPath}, 크기: {SizeMB:F2}MB", 
                         pdfPath, new FileInfo(pdfPath).Length / 1024.0 / 1024.0);
