@@ -8,6 +8,21 @@ namespace AutoCapture.Tests.Models
     public class ErrorMessagesTests
     {
         [Fact]
+        public void TargetProblem_ExplainsWhatToDoInsteadOfUnexpectedError()
+        {
+            var exception = new CaptureTargetException("입력 대상 창이 닫혀서 멈췄습니다.");
+
+            var message = ErrorMessages.GetUserFriendlyMessage(exception);
+            var advice = ErrorMessages.GetRecoveryAdvice(exception);
+
+            Assert.Equal("입력 대상 창이 닫혀서 멈췄습니다.", message);
+            Assert.DoesNotContain("예기치 않은", message);
+            Assert.DoesNotContain("Exception", message);
+            Assert.Contains("다시 선택", advice);
+            Assert.DoesNotContain("재부팅", advice);
+        }
+
+        [Fact]
         public void GetUserFriendlyMessage_UnauthorizedAccessException_ReturnsCorrectMessage()
         {
             // Arrange

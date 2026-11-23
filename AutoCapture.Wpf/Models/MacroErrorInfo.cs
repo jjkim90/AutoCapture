@@ -17,6 +17,7 @@ namespace AutoCapture.Wpf.Models
         {
             return ex switch
             {
+                CaptureTargetException => ex.Message,
                 UnauthorizedAccessException => "파일 또는 폴더에 접근할 수 없습니다.\n관리자 권한으로 실행하거나 폴더 권한을 확인해주세요.",
                 DirectoryNotFoundException => "지정된 저장 폴더를 찾을 수 없습니다.\n저장 경로를 확인해주세요.",
                 IOException ioEx when ioEx.Message.Contains("disk") => "디스크 공간이 부족합니다.\n저장 위치의 여유 공간을 확인해주세요.",
@@ -31,6 +32,7 @@ namespace AutoCapture.Wpf.Models
         {
             return ex switch
             {
+                CaptureTargetException => "• 대상 창(뷰어)을 다시 열기\n• '다시 선택'으로 영역을 고른 뒤 시작",
                 UnauthorizedAccessException => "• 프로그램을 관리자 권한으로 실행\n• 저장 폴더의 쓰기 권한 확인",
                 DirectoryNotFoundException => "• 저장 경로 재설정\n• 폴더 수동 생성",
                 IOException ioEx when ioEx.Message.Contains("disk") => "• 디스크 정리 실행\n• 다른 드라이브 선택",

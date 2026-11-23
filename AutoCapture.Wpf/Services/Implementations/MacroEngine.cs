@@ -94,7 +94,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                 _logger.Information("매크로 실행 시작: {Settings}", settings);
 
                 if (!string.IsNullOrEmpty(settings.AutoInputKey) && target == null)
-                    throw new InvalidOperationException("영역을 다시 선택해 입력 대상 창을 지정하세요.");
+                    throw new CaptureTargetException("입력 대상 창을 찾지 못했습니다.");
 
                 // 첫 캡처 전 초기 대기 시간 (창 최소화 후 안정화)
                 await _delay(2000, cancellationToken);
@@ -210,7 +210,7 @@ namespace AutoCapture.Wpf.Services.Implementations
             {
                 token.ThrowIfCancellationRequested();
                 if (target is { IsOpen: false })
-                    throw new InvalidOperationException("입력 대상 창이 닫혔습니다.");
+                    throw new CaptureTargetException("입력 대상 창이 닫혀서 멈췄습니다. 지금까지 저장한 장은 그대로 남아 있습니다.");
 
                 if (target is { IsForeground: false }) await PauseAsync();
                 Task? wait;

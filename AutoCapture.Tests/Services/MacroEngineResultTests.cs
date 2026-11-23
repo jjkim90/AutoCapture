@@ -30,6 +30,34 @@ namespace AutoCapture.Tests.Services
         };
 
         [Fact]
+        public async Task ClosedTarget_ReportsTargetProblem()
+        {
+            MacroErrorEventArgs? error = null;
+            _engine.Error += (_, e) => error = e;
+            var settings = Settings(false);
+            settings.AutoInputKey = "Right";
+            settings.Target = Mock.Of<ICaptureTarget>(t => !t.IsOpen);
+
+            await _engine.StartAsync(settings, new CaptureArea(0, 0, 10, 10));
+
+            Assert.IsType<CaptureTargetException>(error?.Exception);
+            Assert.Contains("닫혀서 멈췄습니다", error!.Exception.Message);
+        }
+
+        [Fact]
+        public async Task MissingTarget_ReportsTargetProblem()
+        {
+            MacroErrorEventArgs? error = null;
+            _engine.Error += (_, e) => error = e;
+            var settings = Settings(false);
+            settings.AutoInputKey = "Right";
+
+            await _engine.StartAsync(settings, new CaptureArea(0, 0, 10, 10));
+
+            Assert.IsType<CaptureTargetException>(error?.Exception);
+        }
+
+        [Fact]
         public async Task Progress_CarriesSavedFile()
         {
             var files = new List<string?>();
