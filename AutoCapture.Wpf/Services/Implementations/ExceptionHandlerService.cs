@@ -69,7 +69,7 @@ namespace AutoCapture.Wpf.Services.Implementations
             }
 
             // UI 스레드에서 실행되도록 보장
-            if (!_application?.Dispatcher.CheckAccess() ?? false)
+            if (_application != null && !_application.Dispatcher.CheckAccess())
             {
                 _application.Dispatcher.Invoke(() => HandleException(exception, canContinue, canRestart));
                 return;

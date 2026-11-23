@@ -15,7 +15,7 @@ namespace AutoCapture.Wpf.Converters
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             var displayValue = value as string;
-            return displayValue == "없음" ? string.Empty : displayValue;
+            return displayValue == "없음" ? string.Empty : displayValue ?? string.Empty;
         }
     }
 }
