@@ -271,9 +271,7 @@ namespace AutoCapture.Wpf.ViewModels
                 // 알림음 재생
                 if (mainWindow != null) System.Media.SystemSounds.Exclamation.Play();
                 
-                // Windows 알림 표시
-                ShowCompletionNotification(e.TotalCaptured, e.TotalAttempted, e.ElapsedTime, e.Errors);
-                
+                // 완료 결과는 HUD 완료 카드가 보여준다.
                 _logger.Information("매크로 완료. 성공: {Success}/{Total}, 소요 시간: {Time}", 
                     e.TotalCaptured, e.TotalAttempted, e.ElapsedTime);
             });
@@ -311,32 +309,6 @@ namespace AutoCapture.Wpf.ViewModels
                 ((IRelayCommand)StartMacroCommand).NotifyCanExecuteChanged();
                 ((IRelayCommand)StopMacroCommand).NotifyCanExecuteChanged();
             });
-        }
-        
-        private void ShowCompletionNotification(int totalCaptured, int totalAttempted, TimeSpan elapsedTime, List<MacroErrorInfo>? errors)
-        {
-            try
-            {
-                string message;
-                if (errors != null && errors.Count > 0)
-                {
-                    var failedCount = totalAttempted - totalCaptured;
-                    message = $"캡처 작업 완료\n\n성공: {totalCaptured}개\n실패: {failedCount}개\n소요시간: {elapsedTime:mm\\:ss}\n\n실패한 캡처가 있습니다.";
-                }
-                else
-                {
-                    message = $"총 {totalCaptured}개 캡처 완료\n소요시간: {elapsedTime:mm\\:ss}";
-                }
-                
-                // 사용자 정의 알림 창 표시
-                _notify(message, false);
-                    
-                _logger.Information("작업 완료 알림 표시됨");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "알림 표시 중 오류 발생");
-            }
         }
         
         private void ShowErrorNotification(Exception exception, string? summary)

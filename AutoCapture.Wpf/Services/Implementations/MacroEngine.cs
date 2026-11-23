@@ -66,6 +66,7 @@ namespace AutoCapture.Wpf.Services.Implementations
         private async Task RunMacroAsync(CaptureSettings settings, CaptureArea area, CancellationToken cancellationToken)
         {
             var capturedFiles = new List<string>();
+            string? pdfPath = null;
             int attempted = 0;
             string operation = "시작 대기";
             var startTime = DateTime.Now;
@@ -81,6 +82,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                     TotalAttempted = attempted,
                     TotalCaptured = capturedFiles.Count,
                     CapturedFiles = capturedFiles,
+                    PdfPath = pdfPath,
                     ElapsedTime = DateTime.Now - startTime,
                     StopLocation = cancelled ? operation : null,
                     WasCancelled = cancelled
@@ -117,7 +119,8 @@ namespace AutoCapture.Wpf.Services.Implementations
                     {
                         CurrentCount = capturedFiles.Count,
                         TotalCount = settings.CaptureCount,
-                        Message = $"{i}/{settings.CaptureCount}장 저장 완료"
+                        Message = $"{i}/{settings.CaptureCount}장 저장 완료",
+                        FilePath = filePath
                     });
                     cancellationToken.ThrowIfCancellationRequested();
 
@@ -170,7 +173,7 @@ namespace AutoCapture.Wpf.Services.Implementations
                 if (settings.SaveAsPdf && capturedFiles.Count > 0)
                 {
                     operation = "PDF 생성";
-                    await _screenCaptureService.SaveAsPdfAsync(capturedFiles, settings.SaveFolderPath, settings.FileNamePrefix);
+                    pdfPath = await _screenCaptureService.SaveAsPdfAsync(capturedFiles, settings.SaveFolderPath, settings.FileNamePrefix);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();

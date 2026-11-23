@@ -202,4 +202,35 @@
         <Setter Property="Foreground" Value="{StaticResource HudOnAccentBrush}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <!-- HUD의 원형 아이콘 버튼 -->
+    <Style x:Key="HudIconButton" TargetType="Button" BasedOn="{StaticResource HudButton}">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bg" CornerRadius="16" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Opacity" Value="0.85" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bg" Property="Opacity" Value="0.7" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="HudPrimaryIconButton" TargetType="Button" BasedOn="{StaticResource HudIconButton}">
+        <Setter Property="Background" Value="{StaticResource HudAccentBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource HudOnAccentBrush}" />
+    </Style>
 </ResourceDictionary>

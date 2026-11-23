@@ -184,7 +184,7 @@ namespace AutoCapture.Tests.ViewModels
         }
 
         [Fact]
-        public void MacroEngine_Completed_ShowsNotification()
+        public void MacroEngine_Completed_LeavesResultToHud()
         {
             // Arrange
             var completedEventArgs = new MacroCompletedEventArgs
@@ -196,11 +196,11 @@ namespace AutoCapture.Tests.ViewModels
                 CapturedFiles = new List<string> { "file1.png", "file2.png" }
             };
 
-            // 알림은 테스트 수신기에 전달한다.
+            // 성공 결과는 HUD 완료 카드가 보여주므로 알림 창을 띄우지 않는다.
 
             // Act
             _mockMacroEngine.Raise(x => x.Completed += null, completedEventArgs);
-            Assert.False(Assert.Single(_notifications).Error);
+            Assert.Empty(_notifications);
             Assert.Equal(MacroStatus.Completed, _viewModel.MacroState.Status);
 
             // Assert

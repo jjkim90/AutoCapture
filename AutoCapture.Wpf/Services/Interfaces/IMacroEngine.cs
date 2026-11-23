@@ -24,6 +24,8 @@ namespace AutoCapture.Wpf.Services.Interfaces
         public int CurrentCount { get; set; }
         public int TotalCount { get; set; }
         public string? Message { get; set; }
+        /// <summary>방금 저장한 PNG 경로</summary>
+        public string? FilePath { get; set; }
     }
 
     public class MacroCompletedEventArgs : EventArgs
@@ -35,6 +37,8 @@ namespace AutoCapture.Wpf.Services.Interfaces
         public bool WasCancelled { get; set; }
         public TimeSpan ElapsedTime { get; set; }
         public List<string>? CapturedFiles { get; set; }
+        /// <summary>PDF로 묶었을 때 만든 파일 경로</summary>
+        public string? PdfPath { get; set; }
         public List<MacroErrorInfo>? Errors { get; set; }
     }
 

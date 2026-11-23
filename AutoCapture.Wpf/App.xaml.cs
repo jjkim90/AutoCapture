@@ -31,6 +31,9 @@ namespace AutoCapture.Wpf
 
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
             mainWindow.Show();
+
+            // HUD는 숨긴 채 만들어 두고 실행 상태가 바뀔 때 스스로 나타난다.
+            _serviceProvider.GetRequiredService<Views.CaptureHudWindow>();
             
             // 전역 단축키 등록
             RegisterGlobalHotkeys();
@@ -50,6 +53,7 @@ namespace AutoCapture.Wpf
 
             // Views 등록
             services.AddSingleton<MainWindow>();
+            services.AddSingleton<Views.CaptureHudWindow>();
 
             // ViewModels 등록
             services.AddSingleton<IAreaSelectionViewModel, AreaSelectionViewModel>();
@@ -57,6 +61,7 @@ namespace AutoCapture.Wpf
             services.AddSingleton<IMacroControlViewModel, MacroControlViewModel>();
             services.AddSingleton<IMainViewModel, MainWindowViewModel>();
             services.AddSingleton<MainWindowViewModel>();
+            services.AddSingleton<CaptureHudViewModel>();
 
             // Services 등록
             services.AddSingleton<IScreenCaptureService, ScreenCaptureService>();
