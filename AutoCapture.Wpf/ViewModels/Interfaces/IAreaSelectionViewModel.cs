@@ -16,5 +16,13 @@ namespace AutoCapture.Wpf.ViewModels.Interfaces
         
         ICommand SelectAreaCommand { get; }
         ICommand ClearSelectionCommand { get; }
+
+        /// <summary>오버레이 툴바에서 바로 시작을 눌렀을 때. 시작했다면 Started를 true로 둔다.</summary>
+        event EventHandler<StartRequestedEventArgs>? StartRequested;
+    }
+
+    public class StartRequestedEventArgs : EventArgs
+    {
+        public bool Started { get; set; }
     }
 }

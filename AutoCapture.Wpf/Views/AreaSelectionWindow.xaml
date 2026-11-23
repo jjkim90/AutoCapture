@@ -5,70 +5,107 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AutoCapture.Wpf.Views"
         mc:Ignorable="d"
-        Title="AreaSelectionWindow" 
+        Title="AreaSelectionWindow"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="#33000000"
+        Background="Transparent"
         Topmost="True"
         WindowStartupLocation="Manual"
         SizeToContent="Manual"
         ShowInTaskbar="False"
         Cursor="Cross"
+        FontFamily="Segoe UI Variable Text, Segoe UI, Malgun Gothic"
         PreviewKeyDown="Window_PreviewKeyDown">
-    
-    <Grid>
-        <!-- 전체 화면 캔버스 -->
-        <Canvas x:Name="SelectionCanvas"
-                Background="Transparent"
-                MouseDown="Canvas_MouseDown"
-                MouseMove="Canvas_MouseMove"
-                MouseUp="Canvas_MouseUp">
-            
-            <!-- 선택 영역 표시 -->
-            <Rectangle x:Name="SelectionRectangle"
-                       Stroke="#FF2196F3"
-                       StrokeThickness="2"
-                       Fill="#332196F3"
-                       Visibility="Collapsed">
-                <Rectangle.StrokeDashArray>
-                    <DoubleCollection>5,5</DoubleCollection>
-                </Rectangle.StrokeDashArray>
-            </Rectangle>
-        </Canvas>
-        
-        <!-- 크기 정보 표시 -->
-        <Border x:Name="InfoBorder"
-                Background="#FF424242"
-                CornerRadius="4"
-                Padding="8,4"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Margin="0,20,0,0"
-                Visibility="Collapsed">
-            <TextBlock x:Name="InfoText"
-                       Foreground="White"
-                       FontSize="14"
-                       FontWeight="Medium"/>
-        </Border>
-        
-        <ComboBox x:Name="MonitorPicker" HorizontalAlignment="Right" VerticalAlignment="Top"
-                  Margin="8" Background="White" Cursor="Arrow" ToolTip="캡처할 모니터"
-                  DisplayMemberPath="DeviceName" SelectionChanged="MonitorChanged"/>
 
-        <!-- 안내 메시지 -->
-        <Border Background="#FF424242"
-                CornerRadius="4"
-                Padding="16,8"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Bottom"
-                Margin="0,0,0,40">
-            <TextBlock Foreground="White"
-                       FontSize="14"
-                       TextAlignment="Center">
-                <Run Text="마우스를 드래그하여 캡처 영역을 선택하세요"/>
-                <LineBreak/>
-                <Run Text="ESC: 취소 | 드래그 후 마우스를 놓으면 자동 확인" FontSize="12" Foreground="#BBFFFFFF"/>
-            </TextBlock>
+    <Window.Resources>
+        <Style x:Key="Handle" TargetType="Rectangle">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="RadiusX" Value="2" />
+            <Setter Property="RadiusY" Value="2" />
+            <Setter Property="Fill" Value="White" />
+            <Setter Property="Stroke" Value="#FF5C86FF" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
+        <Style x:Key="Pill" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource HudBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource HudEdgeBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource HudForegroundBrush}" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <!-- 선택 영역 밖만 어둡게 -->
+        <Path x:Name="Scrim" Fill="#80080A0F" IsHitTestVisible="False" />
+
+        <!-- 거의 투명한 배경이 있어야 선택 영역 안쪽도 클릭을 받는다 -->
+        <Canvas x:Name="SelectionCanvas"
+                Background="#01000000"
+                MouseLeftButtonDown="Canvas_MouseDown"
+                MouseMove="Canvas_MouseMove"
+                MouseLeftButtonUp="Canvas_MouseUp">
+
+            <Rectangle x:Name="HoverRectangle" Stroke="#FF5C86FF" StrokeThickness="2"
+                       StrokeDashArray="4 3" Fill="#145C86FF"
+                       IsHitTestVisible="False" Visibility="Collapsed" />
+
+            <Rectangle x:Name="SelectionRectangle" Stroke="#FF5C86FF" StrokeThickness="1.5"
+                       Fill="Transparent" Visibility="Collapsed" />
+
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.TopLeft}" Cursor="SizeNWSE" />
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.Top}" Cursor="SizeNS" />
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.TopRight}" Cursor="SizeNESW" />
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.Right}" Cursor="SizeWE" />
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.BottomRight}" Cursor="SizeNWSE" />
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.Bottom}" Cursor="SizeNS" />
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.BottomLeft}" Cursor="SizeNESW" />
+            <Rectangle Style="{StaticResource Handle}" Tag="{x:Static local:SelectionHandle.Left}" Cursor="SizeWE" />
+
+            <!-- 크기 -->
+            <Border x:Name="SizeBadge" Style="{StaticResource Pill}" CornerRadius="4" Padding="7,3"
+                    IsHitTestVisible="False" Visibility="Collapsed">
+                <TextBlock x:Name="SizeText" FontFamily="Cascadia Mono, Consolas" FontSize="12" />
+            </Border>
+
+            <!-- 선택 후 툴바 -->
+            <Border x:Name="Toolbar" Style="{StaticResource Pill}" CornerRadius="22" Padding="6" Cursor="Arrow"
+                    Visibility="Collapsed">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.4" />
+                </Border.Effect>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="SummaryText" Margin="12,0,12,0" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{StaticResource HudMutedBrush}" />
+                    <Button Style="{StaticResource HudButton}" Margin="0,0,6,0" Click="Confirm_Click"
+                            ToolTip="영역만 정하고 설정 화면으로 돌아갑니다">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="영역 확정" />
+                            <TextBlock Text="Enter" Margin="8,0,0,0" Opacity="0.6" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource HudPrimaryButton}" Click="Start_Click"
+                            ToolTip="입력 대상 창을 앞으로 가져온 뒤 바로 시작합니다">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource IconText}" Text="&#xE768;" FontSize="11" Margin="0,0,6,0" />
+                            <TextBlock Text="바로 시작" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Canvas>
+
+        <!-- 안내 -->
+        <Border Style="{StaticResource Pill}" Padding="16,8" Margin="0,20,0,0"
+                HorizontalAlignment="Center" VerticalAlignment="Top" IsHitTestVisible="False">
+            <TextBlock x:Name="HintText" FontSize="13"
+                       Text="창 위에서 클릭하면 창에 맞춤 · 드래그해서 직접 선택 · Esc 취소" />
         </Border>
+
+        <ComboBox x:Name="MonitorPicker" HorizontalAlignment="Right" VerticalAlignment="Top"
+                  Margin="12" Cursor="Arrow" ToolTip="캡처할 모니터"
+                  DisplayMemberPath="DeviceName" SelectionChanged="MonitorChanged"/>
     </Grid>
 </Window>

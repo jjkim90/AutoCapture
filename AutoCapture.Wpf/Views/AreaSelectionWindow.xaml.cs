@@ -1,26 +1,51 @@
-﻿using System.Runtime.InteropServices;
-using System.Windows.Interop;
-using Screen = System.Windows.Forms.Screen;
+﻿using AutoCapture.Wpf.Utilities;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using Screen = System.Windows.Forms.Screen;
 
 namespace AutoCapture.Wpf.Views
 {
+    /// <summary>
+    /// 화면 위에 덮는 영역 선택 오버레이. 창 위에서 클릭하면 그 창에 맞추고, 드래그로 직접 그린다.
+    /// 선택한 뒤에는 손잡이로 크기를 고치거나 안쪽을 끌어 옮기고, Enter나 툴바로 확정한다.
+    /// </summary>
     public partial class AreaSelectionWindow : Window
     {
-        private Point _startPoint;
-        private bool _isSelecting;
-        private Rectangle? _currentSelection;
+        private enum Mode { Idle, Pressed, Drawing, Adjusting, Moving, Resizing }
+
+        private const double DragThreshold = 4;
+        private const double MinimumSize = 8;
+        private const double Gap = 10;
+
+        private readonly uint _processId = (uint)Environment.ProcessId;
+        private Mode _mode = Mode.Idle;
+        private Point _pressPoint;
+        private Point _lastSnapPoint = new(double.NaN, double.NaN);
+        private Rect _origin;
+        private Rect _selection = Rect.Empty;
+        private Rect _hover = Rect.Empty;
+        private SelectionHandle _handle;
 
         public Rect SelectedArea { get; private set; }
         public bool IsSelectionConfirmed { get; private set; }
+        /// <summary>툴바의 바로 시작으로 확정했는지</summary>
+        public bool StartRequested { get; private set; }
 
-        public AreaSelectionWindow()
+        public AreaSelectionWindow() : this(null) { }
+
+        public AreaSelectionWindow(string? settingsSummary)
         {
             InitializeComponent();
+            SummaryText.Text = settingsSummary ?? string.Empty;
+            SummaryText.Visibility = string.IsNullOrEmpty(settingsSummary) ? Visibility.Collapsed : Visibility.Visible;
+            SelectionCanvas.SizeChanged += (_, _) => Reset();
+            // 툴바 여백을 눌러도 새 선택이 시작되지 않게 한다.
+            Toolbar.MouseLeftButtonDown += (_, e) => e.Handled = true;
             SourceInitialized += (_, _) =>
             {
                 var monitors = Screen.AllScreens;
@@ -30,6 +55,11 @@ namespace AutoCapture.Wpf.Views
                 MonitorPicker.SelectedItem = monitors.First(m => m.DeviceName == current.DeviceName);
             };
         }
+
+        private Rect Bounds => new(0, 0, SelectionCanvas.ActualWidth, SelectionCanvas.ActualHeight);
+
+        private IEnumerable<Rectangle> Handles => SelectionCanvas.Children.OfType<Rectangle>()
+            .Where(r => r.Tag is SelectionHandle);
 
         private void MonitorChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -58,97 +88,210 @@ namespace AutoCapture.Wpf.Views
                 IsSelectionConfirmed = false;
                 Close();
             }
-            else if (e.Key == Key.Enter && _currentSelection != null)
+            else if (e.Key == Key.Enter && _mode == Mode.Adjusting)
             {
-                ConfirmSelection();
+                Confirm(start: false);
+                e.Handled = true;
             }
         }
 
         private void Canvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
+            var point = e.GetPosition(SelectionCanvas);
+
+            if (e.OriginalSource is Rectangle { Tag: SelectionHandle handle })
             {
-                _startPoint = e.GetPosition(SelectionCanvas);
-                _isSelecting = true;
-
-                // 기존 선택 영역 초기화
-                if (_currentSelection != null)
-                {
-                    SelectionCanvas.Children.Remove(_currentSelection);
-                }
-
-                // 새 선택 영역 생성
-                _currentSelection = new Rectangle
-                {
-                    Stroke = new SolidColorBrush(Color.FromRgb(33, 150, 243)),
-                    StrokeThickness = 2,
-                    Fill = new SolidColorBrush(Color.FromArgb(51, 33, 150, 243)),
-                    StrokeDashArray = new DoubleCollection { 5, 5 }
-                };
-
-                Canvas.SetLeft(_currentSelection, _startPoint.X);
-                Canvas.SetTop(_currentSelection, _startPoint.Y);
-                SelectionCanvas.Children.Add(_currentSelection);
-
-                // 마우스 캡처
-                Mouse.Capture(SelectionCanvas);
+                _mode = Mode.Resizing;
+                _handle = handle;
+                _origin = _selection;
             }
+            else if (_mode == Mode.Adjusting && _selection.Contains(point))
+            {
+                if (e.ClickCount == 2)
+                {
+                    Confirm(start: false);
+                    return;
+                }
+                _mode = Mode.Moving;
+                _origin = _selection;
+            }
+            else
+            {
+                _mode = Mode.Pressed;
+            }
+
+            _pressPoint = point;
+            Toolbar.Visibility = Visibility.Collapsed;
+            SelectionCanvas.CaptureMouse();
+            e.Handled = true;
         }
 
         private void Canvas_MouseMove(object sender, MouseEventArgs e)
         {
-            if (_isSelecting && _currentSelection != null)
+            var point = e.GetPosition(SelectionCanvas);
+            switch (_mode)
             {
-                var currentPoint = e.GetPosition(SelectionCanvas);
-
-                var x = Math.Min(currentPoint.X, _startPoint.X);
-                var y = Math.Min(currentPoint.Y, _startPoint.Y);
-                var width = Math.Abs(currentPoint.X - _startPoint.X);
-                var height = Math.Abs(currentPoint.Y - _startPoint.Y);
-
-                Canvas.SetLeft(_currentSelection, x);
-                Canvas.SetTop(_currentSelection, y);
-                _currentSelection.Width = width;
-                _currentSelection.Height = height;
-
-                // 크기 정보 업데이트
-                if (width > 0 && height > 0)
-                {
-                    InfoText.Text = $"{width:0} × {height:0}";
-                    InfoBorder.Visibility = Visibility.Visible;
-                }
+                case Mode.Idle:
+                    UpdateHover(point);
+                    return;
+                case Mode.Pressed when (point - _pressPoint).Length > DragThreshold:
+                    _mode = Mode.Drawing;
+                    _hover = Rect.Empty;
+                    goto case Mode.Drawing;
+                case Mode.Drawing:
+                    _selection = SelectionMath.FromPoints(_pressPoint, point, Bounds);
+                    break;
+                case Mode.Moving:
+                    _selection = SelectionMath.Move(_origin, point - _pressPoint, Bounds);
+                    break;
+                case Mode.Resizing:
+                    _selection = SelectionMath.Resize(_origin, _handle, point - _pressPoint, MinimumSize, Bounds);
+                    break;
+                default:
+                    return;
             }
+            Render();
         }
 
         private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (_isSelecting && _currentSelection != null)
+            SelectionCanvas.ReleaseMouseCapture();
+            switch (_mode)
             {
-                _isSelecting = false;
-                Mouse.Capture(null);
-
-                // 선택 영역이 있으면 바로 확정
-                if (_currentSelection.Width > 5 && _currentSelection.Height > 5)
-                {
-                    ConfirmSelection();
-                }
+                case Mode.Pressed:
+                    // 드래그 없이 클릭: 커서 아래 창에 맞춘다.
+                    UpdateHover(e.GetPosition(SelectionCanvas), force: true);
+                    _selection = _hover;
+                    _hover = Rect.Empty;
+                    _mode = _selection.IsEmpty ? Mode.Idle : Mode.Adjusting;
+                    break;
+                case Mode.Drawing:
+                    _mode = _selection.Width >= MinimumSize && _selection.Height >= MinimumSize ? Mode.Adjusting : Mode.Idle;
+                    if (_mode == Mode.Idle) _selection = Rect.Empty;
+                    break;
+                case Mode.Moving:
+                case Mode.Resizing:
+                    _mode = Mode.Adjusting;
+                    break;
             }
+            Render();
         }
 
-        private void ConfirmSelection()
+        private void UpdateHover(Point point, bool force = false)
         {
-            if (_currentSelection != null && _currentSelection.Width > 0 && _currentSelection.Height > 0)
-            {
-                var x = Canvas.GetLeft(_currentSelection);
-                var y = Canvas.GetTop(_currentSelection);
-                
-                SelectedArea = ScreenBounds(new Point(x, y),
-                    new Point(x + _currentSelection.Width, y + _currentSelection.Height),
-                    SelectionCanvas.PointToScreen);
+            if (!force && (point - _lastSnapPoint).Length < 3) return;
+            _lastSnapPoint = point;
 
-                IsSelectionConfirmed = true;
-                Close();
+            var screen = SelectionCanvas.PointToScreen(point);
+            var found = WindowSnap.Find((int)Math.Round(screen.X), (int)Math.Round(screen.Y), _processId);
+            _hover = found is { } rect
+                ? SelectionMath.Clamp(new Rect(SelectionCanvas.PointFromScreen(rect.TopLeft),
+                                               SelectionCanvas.PointFromScreen(rect.BottomRight)), Bounds)
+                : Rect.Empty;
+            if (!force) Render();
+        }
+
+        private void Reset()
+        {
+            _mode = Mode.Idle;
+            _selection = Rect.Empty;
+            _hover = Rect.Empty;
+            Render();
+        }
+
+        private void Render()
+        {
+            var bounds = Bounds;
+            var focus = !_selection.IsEmpty ? _selection : _hover;
+
+            var scrim = new GeometryGroup { FillRule = FillRule.EvenOdd };
+            scrim.Children.Add(new RectangleGeometry(bounds));
+            if (!focus.IsEmpty) scrim.Children.Add(new RectangleGeometry(focus));
+            Scrim.Data = scrim;
+
+            Place(HoverRectangle, _selection.IsEmpty ? _hover : Rect.Empty);
+            Place(SelectionRectangle, _selection);
+
+            var adjusting = _mode == Mode.Adjusting;
+            foreach (var handle in Handles)
+            {
+                handle.Visibility = adjusting ? Visibility.Visible : Visibility.Collapsed;
+                if (!adjusting) continue;
+                var at = HandlePoint(_selection, (SelectionHandle)handle.Tag);
+                Canvas.SetLeft(handle, at.X - handle.Width / 2);
+                Canvas.SetTop(handle, at.Y - handle.Height / 2);
             }
+
+            if (focus.IsEmpty)
+            {
+                SizeBadge.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                var physical = ScreenBounds(focus.TopLeft, focus.BottomRight, SelectionCanvas.PointToScreen);
+                SizeText.Text = $"{physical.Width:0} × {physical.Height:0}";
+                SizeBadge.Visibility = Visibility.Visible;
+                Canvas.SetLeft(SizeBadge, focus.Left);
+                Canvas.SetTop(SizeBadge, Math.Max(0, focus.Top - 28));
+            }
+
+            Toolbar.Visibility = adjusting ? Visibility.Visible : Visibility.Collapsed;
+            if (adjusting)
+            {
+                Toolbar.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                var at = SelectionMath.ToolbarPosition(_selection, Toolbar.DesiredSize, bounds, Gap);
+                Canvas.SetLeft(Toolbar, at.X);
+                Canvas.SetTop(Toolbar, at.Y);
+            }
+
+            HintText.Text = adjusting
+                ? "모서리를 끌어 크기 조절 · 안쪽을 끌어 이동 · Enter 확정 · Esc 취소"
+                : "창 위에서 클릭하면 창에 맞춤 · 드래그해서 직접 선택 · Esc 취소";
+        }
+
+        private static void Place(FrameworkElement element, Rect rect)
+        {
+            if (rect.IsEmpty)
+            {
+                element.Visibility = Visibility.Collapsed;
+                return;
+            }
+            Canvas.SetLeft(element, rect.Left);
+            Canvas.SetTop(element, rect.Top);
+            element.Width = rect.Width;
+            element.Height = rect.Height;
+            element.Visibility = Visibility.Visible;
+        }
+
+        private static Point HandlePoint(Rect rect, SelectionHandle handle)
+        {
+            var x = handle switch
+            {
+                SelectionHandle.TopLeft or SelectionHandle.Left or SelectionHandle.BottomLeft => rect.Left,
+                SelectionHandle.TopRight or SelectionHandle.Right or SelectionHandle.BottomRight => rect.Right,
+                _ => rect.Left + rect.Width / 2
+            };
+            var y = handle switch
+            {
+                SelectionHandle.TopLeft or SelectionHandle.Top or SelectionHandle.TopRight => rect.Top,
+                SelectionHandle.BottomLeft or SelectionHandle.Bottom or SelectionHandle.BottomRight => rect.Bottom,
+                _ => rect.Top + rect.Height / 2
+            };
+            return new Point(x, y);
+        }
+
+        private void Confirm_Click(object sender, RoutedEventArgs e) => Confirm(start: false);
+
+        private void Start_Click(object sender, RoutedEventArgs e) => Confirm(start: true);
+
+        private void Confirm(bool start)
+        {
+            if (_selection.IsEmpty || _selection.Width <= 0 || _selection.Height <= 0) return;
+
+            SelectedArea = ScreenBounds(_selection.TopLeft, _selection.BottomRight, SelectionCanvas.PointToScreen);
+            IsSelectionConfirmed = true;
+            StartRequested = start;
+            Close();
         }
     }
 }

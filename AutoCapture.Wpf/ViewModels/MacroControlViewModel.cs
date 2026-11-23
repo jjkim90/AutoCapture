@@ -82,6 +82,32 @@ namespace AutoCapture.Wpf.ViewModels
             // AreaSelection과 CaptureSettings의 변경 사항 구독
             _areaSelection.PropertyChanged += OnDependencyPropertyChanged;
             _captureSettings.PropertyChanged += OnDependencyPropertyChanged;
+            _areaSelection.StartRequested += OnStartRequested;
+        }
+
+        /// <summary>오버레이의 바로 시작. 입력 대상 창을 앞으로 가져온 뒤 시작한다.</summary>
+        private void OnStartRequested(object? sender, StartRequestedEventArgs e)
+        {
+            if (!StartMacroCommand.CanExecute(null))
+            {
+                StatusMessage = StartBlockReason();
+                _logger.Information("바로 시작 불가: {Reason}", StatusMessage);
+                return;
+            }
+
+            var target = _areaSelection.Target;
+            if (!string.IsNullOrEmpty(_captureSettings.AutoInputKey) && target is { IsOpen: true })
+                target.Activate();
+            StartMacroCommand.Execute(null);
+            e.Started = true;
+        }
+
+        private string StartBlockReason()
+        {
+            if (!_captureSettings.Validate()) return "저장 폴더를 선택한 뒤 시작하세요";
+            if (!string.IsNullOrEmpty(_captureSettings.AutoInputKey) && _areaSelection.Target is not { IsOpen: true })
+                return "영역 중앙에서 입력 대상 창을 찾지 못했습니다. 영역을 다시 선택하세요";
+            return "지금은 시작할 수 없습니다";
         }
 
         private static void OnUi(Action action)

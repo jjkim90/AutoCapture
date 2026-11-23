@@ -15,6 +15,7 @@ namespace AutoCapture.Wpf.ViewModels
     {
         private readonly ILogger _logger;
         private readonly Func<CaptureArea, Task<ImageSource?>> _snapshot;
+        private readonly Func<string>? _summary;
 
         [ObservableProperty]
         private CaptureArea _captureArea = new();
@@ -34,19 +35,23 @@ namespace AutoCapture.Wpf.ViewModels
         public ICommand SelectAreaCommand { get; }
         public ICommand ClearSelectionCommand { get; }
 
-        public AreaSelectionViewModel(ILogger logger)
+        public event EventHandler<StartRequestedEventArgs>? StartRequested;
+
+        public AreaSelectionViewModel(ILogger logger, ICaptureSettingsViewModel settings)
             : this(logger, async area =>
             {
                 // 선택 오버레이가 화면에서 사라진 뒤에 찍는다.
                 await Task.Delay(150);
                 return ScreenSnapshot.Capture(area);
-            })
+            }, () => Summarize(settings))
         { }
 
-        internal AreaSelectionViewModel(ILogger logger, Func<CaptureArea, Task<ImageSource?>> snapshot)
+        internal AreaSelectionViewModel(ILogger logger, Func<CaptureArea, Task<ImageSource?>> snapshot,
+            Func<string>? summary = null)
         {
             _logger = logger;
             _snapshot = snapshot;
+            _summary = summary;
             SelectAreaCommand = new AsyncRelayCommand(SelectAreaAsync);
             ClearSelectionCommand = new RelayCommand(ClearSelection);
         }
@@ -72,7 +77,7 @@ namespace AutoCapture.Wpf.ViewModels
                         new Action(delegate { }));
                 }
 
-                var selectionWindow = new Views.AreaSelectionWindow();
+                var selectionWindow = new Views.AreaSelectionWindow(_summary?.Invoke());
                 selectionWindow.ShowDialog();
 
                 if (selectionWindow.IsSelectionConfirmed)
@@ -80,6 +85,10 @@ namespace AutoCapture.Wpf.ViewModels
                     var rect = selectionWindow.SelectedArea;
                     await ApplySelectionAsync(new CaptureArea((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height),
                         Models.CaptureTarget.FromArea);
+
+                    // 바로 시작했다면 메인 창은 최소화된 채로 둔다.
+                    if (selectionWindow.StartRequested && RequestStart())
+                        return;
                 }
                 else
                 {
@@ -119,6 +128,27 @@ namespace AutoCapture.Wpf.ViewModels
                 // 미리보기는 보조 정보라 실패해도 선택은 유지한다.
                 _logger.Warning(ex, "영역 미리보기 생성 실패");
             }
+        }
+
+        /// <summary>바로 시작을 요청한다. 시작 조건이 맞지 않으면 false.</summary>
+        internal bool RequestStart()
+        {
+            var args = new StartRequestedEventArgs();
+            StartRequested?.Invoke(this, args);
+            _logger.Information("오버레이에서 바로 시작 요청: {Started}", args.Started);
+            return args.Started;
+        }
+
+        /// <summary>오버레이 툴바에 보여줄 현재 설정 요약</summary>
+        internal static string Summarize(ICaptureSettingsViewModel settings)
+        {
+            var key = settings.AutoInputKey switch
+            {
+                "" or null => "넘김 없음",
+                "Right" => "→ 키",
+                var other => $"{other} 키"
+            };
+            return $"{settings.CaptureCount}장 · {settings.IntervalSeconds}초 · {key}";
         }
 
         private void ClearSelection()
