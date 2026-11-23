@@ -10,7 +10,8 @@
         AllowsTransparency="True"
         Background="#33000000"
         Topmost="True"
-        WindowState="Maximized"
+        WindowStartupLocation="Manual"
+        SizeToContent="Manual"
         ShowInTaskbar="False"
         Cursor="Cross"
         PreviewKeyDown="Window_PreviewKeyDown">
@@ -50,6 +51,10 @@
                        FontWeight="Medium"/>
         </Border>
         
+        <ComboBox x:Name="MonitorPicker" HorizontalAlignment="Right" VerticalAlignment="Top"
+                  Margin="8" Background="White" Cursor="Arrow" ToolTip="캡처할 모니터"
+                  DisplayMemberPath="DeviceName" SelectionChanged="MonitorChanged"/>
+
         <!-- 안내 메시지 -->
         <Border Background="#FF424242"
                 CornerRadius="4"

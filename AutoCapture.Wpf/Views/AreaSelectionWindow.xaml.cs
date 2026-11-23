@@ -1,4 +1,7 @@
-﻿using System.Windows;
+﻿using System.Runtime.InteropServices;
+using System.Windows.Interop;
+using Screen = System.Windows.Forms.Screen;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -18,6 +21,34 @@ namespace AutoCapture.Wpf.Views
         public AreaSelectionWindow()
         {
             InitializeComponent();
+            SourceInitialized += (_, _) =>
+            {
+                var monitors = Screen.AllScreens;
+                MonitorPicker.ItemsSource = monitors;
+                MonitorPicker.Visibility = monitors.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
+                var current = Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+                MonitorPicker.SelectedItem = monitors.First(m => m.DeviceName == current.DeviceName);
+            };
+        }
+
+        private void MonitorChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (MonitorPicker.SelectedItem is not Screen monitor) return;
+            var bounds = monitor.Bounds;
+            var window = new WindowInteropHelper(this).Handle;
+            if (window != 0)
+                SetWindowPos(window, 0, bounds.X, bounds.Y, bounds.Width, bounds.Height, 0x0014);
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(nint window, nint after, int x, int y, int width, int height, uint flags);
+
+        internal static Rect ScreenBounds(Point first, Point second, Func<Point, Point> toScreen)
+        {
+            var a = toScreen(first);
+            var b = toScreen(second);
+            return new Rect(new Point(Math.Round(a.X), Math.Round(a.Y)),
+                            new Point(Math.Round(b.X), Math.Round(b.Y)));
         }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -111,24 +142,9 @@ namespace AutoCapture.Wpf.Views
                 var x = Canvas.GetLeft(_currentSelection);
                 var y = Canvas.GetTop(_currentSelection);
                 
-                // 실제 화면 좌표로 변환 (DPI 고려)
-                var source = PresentationSource.FromVisual(this);
-                if (source != null)
-                {
-                    var dpiX = source.CompositionTarget.TransformToDevice.M11;
-                    var dpiY = source.CompositionTarget.TransformToDevice.M22;
-                    
-                    SelectedArea = new Rect(
-                        x * dpiX,
-                        y * dpiY,
-                        _currentSelection.Width * dpiX,
-                        _currentSelection.Height * dpiY
-                    );
-                }
-                else
-                {
-                    SelectedArea = new Rect(x, y, _currentSelection.Width, _currentSelection.Height);
-                }
+                SelectedArea = ScreenBounds(new Point(x, y),
+                    new Point(x + _currentSelection.Width, y + _currentSelection.Height),
+                    SelectionCanvas.PointToScreen);
 
                 IsSelectionConfirmed = true;
                 Close();
