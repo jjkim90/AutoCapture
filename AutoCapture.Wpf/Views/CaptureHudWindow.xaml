@@ -53,6 +53,39 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <!-- 완료 카드: 커지면서 나타나 눈에 띄게 한다 -->
+        <Style x:Key="CompletedCard" TargetType="Border" BasedOn="{StaticResource ShowWhenCompleted}">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static vm:HudState.Completed}">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.2" />
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                 From="0.85" To="1" Duration="0:0:0.35">
+                                    <DoubleAnimation.EasingFunction>
+                                        <BackEase EasingMode="EaseOut" Amplitude="0.4" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                 From="0.85" To="1" Duration="0:0:0.35">
+                                    <DoubleAnimation.EasingFunction>
+                                        <BackEase EasingMode="EaseOut" Amplitude="0.4" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="Thumbnail" TargetType="Border">
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="BorderThickness" Value="1" />
@@ -124,10 +157,10 @@
         </Border>
 
         <!-- 완료 -->
-        <Border Style="{StaticResource ShowWhenCompleted}"
-                Width="344" CornerRadius="22" Padding="14" BorderThickness="1"
+        <Border Style="{StaticResource CompletedCard}"
+                Width="344" CornerRadius="22" Padding="14" BorderThickness="1.5"
                 Background="{StaticResource HudBackgroundBrush}"
-                BorderBrush="{StaticResource HudEdgeBrush}">
+                BorderBrush="#995CD69B">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.45" />
             </Border.Effect>
@@ -159,12 +192,12 @@
 
                     <StackPanel Grid.Column="1" Margin="14,0,8,0" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
-                            <Grid Width="16" Height="16" Margin="0,0,7,0" VerticalAlignment="Center">
+                            <Grid Width="20" Height="20" Margin="0,0,8,0" VerticalAlignment="Center">
                                 <Ellipse Fill="{StaticResource HudSuccessBrush}" />
-                                <TextBlock Style="{StaticResource IconText}" Text="&#xE73E;" FontSize="9"
+                                <TextBlock Style="{StaticResource IconText}" Text="&#xE73E;" FontSize="11"
                                            HorizontalAlignment="Center" Foreground="{StaticResource HudOnAccentBrush}" />
                             </Grid>
-                            <TextBlock Text="{Binding CompletedTitle}" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding CompletedTitle}" FontSize="16" FontWeight="SemiBold" />
                         </StackPanel>
                         <TextBlock Text="{Binding CompletedDetail}" FontSize="12" Margin="0,3,0,0"
                                    Foreground="{StaticResource HudMutedBrush}" />

@@ -17,6 +17,7 @@ namespace AutoCapture.Wpf.ViewModels
     {
         private readonly ILogger _logger;
         private readonly Action<string, bool> _notify;
+        private readonly Action<string> _open;
         private readonly ICaptureSettingsViewModel _captureSettings;
         private readonly IAreaSelectionViewModel _areaSelection;
         private readonly IMacroEngine _macroEngine;
@@ -27,6 +28,17 @@ namespace AutoCapture.Wpf.ViewModels
 
         [ObservableProperty]
         private string _statusMessage = "준비";
+
+        /// <summary>마지막 성공 결과. 메인 화면 배너에 보여주고 다음 실행을 시작하면 지운다.</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasResult))]
+        private CompletionSummary? _lastResult;
+
+        public bool HasResult => LastResult != null;
+
+        public IRelayCommand OpenResultFolderCommand { get; }
+        public IRelayCommand OpenResultPdfCommand { get; }
+        public IRelayCommand DismissResultCommand { get; }
 
         public bool IsRunning => MacroState.IsRunning;
         public bool IsActive => MacroState.Status is MacroStatus.Running or MacroStatus.Paused or MacroStatus.Stopping;
@@ -53,9 +65,15 @@ namespace AutoCapture.Wpf.ViewModels
                 (message, error) => new Views.NotificationWindow(message, error).Show()) { }
 
         internal MacroControlViewModel(ILogger logger, ICaptureSettingsViewModel captureSettings,
-            IAreaSelectionViewModel areaSelection, IMacroEngine macroEngine, Action<string, bool> notify)
+            IAreaSelectionViewModel areaSelection, IMacroEngine macroEngine, Action<string, bool> notify,
+            Action<string>? open = null)
         {
             _notify = notify;
+            _open = open ?? (path => System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }));
+            OpenResultFolderCommand = new RelayCommand(() => OpenResult(LastResult?.Folder));
+            OpenResultPdfCommand = new RelayCommand(() => OpenResult(LastResult?.PdfPath));
+            DismissResultCommand = new RelayCommand(() => LastResult = null);
             _logger = logger;
             _captureSettings = captureSettings;
             _areaSelection = areaSelection;
@@ -102,6 +120,19 @@ namespace AutoCapture.Wpf.ViewModels
             e.Started = true;
         }
 
+        private void OpenResult(string? path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            try
+            {
+                _open(path);
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or System.IO.FileNotFoundException or InvalidOperationException)
+            {
+                _logger.Warning(ex, "결과 열기 실패: {Path}", path);
+            }
+        }
+
         private string StartBlockReason()
         {
             if (!_captureSettings.Validate()) return "저장 폴더를 선택한 뒤 시작하세요";
@@ -135,6 +166,7 @@ namespace AutoCapture.Wpf.ViewModels
             try
             {
                 _logger.Information("매크로 시작");
+                LastResult = null;
                 MacroState.Reset();
                 MacroState.Status = MacroStatus.Running;
                 MacroState.StartTime = DateTime.Now;
@@ -297,7 +329,8 @@ namespace AutoCapture.Wpf.ViewModels
                 // 알림음 재생
                 if (mainWindow != null) System.Media.SystemSounds.Exclamation.Play();
                 
-                // 완료 결과는 HUD 완료 카드가 보여준다.
+                // 완료 결과는 HUD 완료 카드와 메인 화면 배너가 보여준다.
+                LastResult = CompletionSummary.From(e, _captureSettings.SaveFolderPath);
                 _logger.Information("매크로 완료. 성공: {Success}/{Total}, 소요 시간: {Time}", 
                     e.TotalCaptured, e.TotalAttempted, e.ElapsedTime);
             });

@@ -170,15 +170,14 @@ namespace AutoCapture.Wpf.ViewModels
                 return;
             }
 
-            _pdfPath = e.PdfPath;
-            CanOpenPdf = !string.IsNullOrEmpty(e.PdfPath);
+            var summary = CompletionSummary.From(e, _folder);
+            _folder = summary.Folder;
+            _pdfPath = summary.PdfPath;
+            CanOpenPdf = summary.HasPdf;
             Current = e.TotalCaptured;
             Progress = 1;
-            CompletedTitle = $"{e.TotalCaptured}장 저장 완료";
-            var parts = new List<string> { $"PNG {e.TotalCaptured}" };
-            if (CanOpenPdf) parts.Add("PDF 1");
-            parts.Add(CaptureSettingsViewModel.FormatDuration(e.ElapsedTime));
-            CompletedDetail = string.Join(" · ", parts);
+            CompletedTitle = summary.Title;
+            CompletedDetail = summary.Detail;
             if (LastThumbnail == null && e.CapturedFiles is { Count: > 0 } files)
                 _ = ShowThumbnailAsync(files[^1]);
             State = HudState.Completed;

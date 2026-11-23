@@ -207,9 +207,58 @@
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 Background="{DynamicResource LayerFillColorDefaultBrush}">
             <StackPanel>
+                <!-- 완료 결과 배너: 다음 실행을 시작하거나 닫을 때까지 남는다 -->
+                <Border DataContext="{Binding MacroControl}" Margin="0,0,0,10" Padding="12,10,6,10"
+                        CornerRadius="6" BorderThickness="1"
+                        Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                        Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="22" Height="22" Margin="0,1,10,0" VerticalAlignment="Top">
+                            <Ellipse Fill="{DynamicResource SystemFillColorSuccessBrush}"/>
+                            <TextBlock Style="{StaticResource IconText}" Text="&#xE73E;" FontSize="11"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorInverseBrush}"/>
+                        </Grid>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{Binding LastResult.Title}" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding LastResult.Detail}" FontSize="12" Margin="0,2,0,0"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Command="{Binding OpenResultFolderCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource IconText}" Text="&#xE838;" Margin="0,0,6,0"/>
+                                        <TextBlock Text="폴더 열기"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding OpenResultPdfCommand}" Margin="6,0,0,0"
+                                        Visibility="{Binding LastResult.HasPdf, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource IconText}" Text="&#xEA90;" Margin="0,0,6,0"/>
+                                        <TextBlock Text="PDF 열기"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="2" VerticalAlignment="Top" Padding="6" MinWidth="0" MinHeight="0"
+                                Background="Transparent" BorderThickness="0"
+                                Command="{Binding DismissResultCommand}" ToolTip="닫기">
+                            <TextBlock Style="{StaticResource IconText}" Text="&#xE711;" FontSize="10"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
                 <TextBlock DataContext="{Binding MacroControl}"
                            Text="{Binding StatusMessage}" TextTrimming="CharacterEllipsis"
                            ToolTip="{Binding StatusMessage}"
+                           Visibility="{Binding HasResult, Converter={StaticResource InverseBoolToVisibility}}"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="13"/>
                 <ProgressBar DataContext="{Binding MacroControl}" Margin="0,8,0,0"
                              Value="{Binding CurrentCaptureCount, Mode=OneWay}"
