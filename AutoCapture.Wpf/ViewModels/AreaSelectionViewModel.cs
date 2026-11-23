@@ -62,22 +62,20 @@ namespace AutoCapture.Wpf.ViewModels
             {
                 _logger.Information("화면 영역 선택 시작");
 
-                // 메인 윈도우 최소화
                 var mainWindow = Application.Current?.MainWindow;
                 var wasMinimized = false;
-                if (mainWindow != null && mainWindow.WindowState != WindowState.Minimized)
+                Rect? current = HasSelection ? new Rect(X, Y, Width, Height) : null;
+                var selectionWindow = new Views.AreaSelectionWindow(_summary?.Invoke(), current);
+
+                // 오버레이가 먼저 활성 창이 된 뒤 메인 창을 내린다. 메인 창을 먼저 내리면
+                // Windows가 다른 앱을 활성화해 오버레이가 키보드 포커스(Esc, Enter)를 받지 못한다.
+                selectionWindow.ContentRendered += (_, _) =>
                 {
+                    if (mainWindow == null || mainWindow.WindowState == WindowState.Minimized) return;
                     mainWindow.WindowState = WindowState.Minimized;
                     wasMinimized = true;
                     _logger.Information("영역 선택을 위해 메인 윈도우 최소화");
-
-                    // 최소화 애니메이션이 완료되도록 잠시 대기
-                    System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(
-                        System.Windows.Threading.DispatcherPriority.Background,
-                        new Action(delegate { }));
-                }
-
-                var selectionWindow = new Views.AreaSelectionWindow(_summary?.Invoke());
+                };
                 selectionWindow.ShowDialog();
 
                 if (selectionWindow.IsSelectionConfirmed)

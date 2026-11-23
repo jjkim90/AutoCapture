@@ -79,6 +79,13 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="SummaryText" Margin="12,0,12,0" FontSize="12" VerticalAlignment="Center"
                                Foreground="{StaticResource HudMutedBrush}" />
+                    <Button Style="{StaticResource HudButton}" Margin="0,0,6,0" Click="Redraw_Click"
+                            ToolTip="지금 영역을 버리고 새로 그립니다. 우클릭이나 Ctrl+드래그로도 됩니다">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource IconText}" Text="&#xE72C;" FontSize="11" Margin="0,0,6,0" />
+                            <TextBlock Text="다시 그리기" />
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource HudButton}" Margin="0,0,6,0" Click="Confirm_Click"
                             ToolTip="영역만 정하고 설정 화면으로 돌아갑니다">
                         <StackPanel Orientation="Horizontal">

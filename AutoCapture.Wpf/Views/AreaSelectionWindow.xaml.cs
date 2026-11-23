@@ -30,6 +30,7 @@ namespace AutoCapture.Wpf.Views
         private Rect _selection = Rect.Empty;
         private Rect _hover = Rect.Empty;
         private SelectionHandle _handle;
+        private Rect? _initialArea;
 
         public Rect SelectedArea { get; private set; }
         public bool IsSelectionConfirmed { get; private set; }
@@ -38,12 +39,21 @@ namespace AutoCapture.Wpf.Views
 
         public AreaSelectionWindow() : this(null) { }
 
-        public AreaSelectionWindow(string? settingsSummary)
+        /// <param name="settingsSummary">툴바에 보여줄 현재 설정 요약</param>
+        /// <param name="initialArea">이미 고른 영역(물리 픽셀). 있으면 그 영역을 고른 상태로 연다.</param>
+        public AreaSelectionWindow(string? settingsSummary, Rect? initialArea = null)
         {
             InitializeComponent();
+            _initialArea = initialArea is { IsEmpty: false, Width: > 0, Height: > 0 } ? initialArea : null;
             SummaryText.Text = settingsSummary ?? string.Empty;
             SummaryText.Visibility = string.IsNullOrEmpty(settingsSummary) ? Visibility.Collapsed : Visibility.Visible;
             SelectionCanvas.SizeChanged += (_, _) => Reset();
+            SelectionCanvas.MouseRightButtonDown += (_, e) =>
+            {
+                // 우클릭: 지금 영역을 버리고 새로 그린다.
+                ClearSelection(e.GetPosition(SelectionCanvas));
+                e.Handled = true;
+            };
             // 툴바 여백을 눌러도 새 선택이 시작되지 않게 한다.
             Toolbar.MouseLeftButtonDown += (_, e) => e.Handled = true;
             SourceInitialized += (_, _) =>
@@ -51,10 +61,71 @@ namespace AutoCapture.Wpf.Views
                 var monitors = Screen.AllScreens;
                 MonitorPicker.ItemsSource = monitors;
                 MonitorPicker.Visibility = monitors.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
-                var current = Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+                // 이전 영역이 있으면 그 영역이 있는 모니터에서 연다.
+                var current = _initialArea is { } area
+                    ? Screen.FromRectangle(new System.Drawing.Rectangle((int)area.X, (int)area.Y, (int)area.Width, (int)area.Height))
+                    : Screen.FromPoint(System.Windows.Forms.Cursor.Position);
                 MonitorPicker.SelectedItem = monitors.First(m => m.DeviceName == current.DeviceName);
             };
         }
+
+        protected override void OnContentRendered(EventArgs e)
+        {
+            base.OnContentRendered(e);
+            // Esc와 Enter가 바로 먹도록 키보드 포커스를 가져온다.
+            Activate();
+            Focus();
+            Keyboard.Focus(this);
+
+            if (_initialArea is not { } area) return;
+            _initialArea = null;
+            var restored = SelectionMath.Clamp(new Rect(SelectionCanvas.PointFromScreen(area.TopLeft),
+                                                        SelectionCanvas.PointFromScreen(area.BottomRight)), Bounds);
+            if (restored.IsEmpty || restored.Width < MinimumSize || restored.Height < MinimumSize) return;
+            _selection = restored;
+            _hover = Rect.Empty;
+            _mode = Mode.Adjusting;
+            Render();
+        }
+
+        /// <summary>
+        /// 커서 모양: 크기 조절 중은 손잡이 방향, 이동 중과 선택 안쪽은 이동 커서, 나머지는 창의 십자 커서(null).
+        /// </summary>
+        internal static Cursor? CursorFor(bool adjusting, bool moving, SelectionHandle? resizing, bool insideSelection, bool drawNew)
+        {
+            if (resizing is { } handle) return HandleCursor(handle);
+            if (moving) return Cursors.SizeAll;
+            return adjusting && insideSelection && !drawNew ? Cursors.SizeAll : null;
+        }
+
+        internal static Cursor HandleCursor(SelectionHandle handle) => handle switch
+        {
+            SelectionHandle.TopLeft or SelectionHandle.BottomRight => Cursors.SizeNWSE,
+            SelectionHandle.TopRight or SelectionHandle.BottomLeft => Cursors.SizeNESW,
+            SelectionHandle.Top or SelectionHandle.Bottom => Cursors.SizeNS,
+            _ => Cursors.SizeWE
+        };
+
+        private static bool DrawNewModifier => (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+
+        private void UpdateCursor(Point point)
+        {
+            SelectionCanvas.Cursor = CursorFor(_mode == Mode.Adjusting, _mode == Mode.Moving,
+                _mode == Mode.Resizing ? _handle : null, _selection.Contains(point), DrawNewModifier);
+        }
+
+        private void ClearSelection(Point point)
+        {
+            if (_mode is Mode.Drawing or Mode.Moving or Mode.Resizing) SelectionCanvas.ReleaseMouseCapture();
+            _selection = Rect.Empty;
+            _mode = Mode.Idle;
+            _lastSnapPoint = new Point(double.NaN, double.NaN);
+            UpdateHover(point, force: true);
+            UpdateCursor(point);
+            Render();
+        }
+
+        private void Redraw_Click(object sender, RoutedEventArgs e) => ClearSelection(Mouse.GetPosition(SelectionCanvas));
 
         private Rect Bounds => new(0, 0, SelectionCanvas.ActualWidth, SelectionCanvas.ActualHeight);
 
@@ -105,7 +176,7 @@ namespace AutoCapture.Wpf.Views
                 _handle = handle;
                 _origin = _selection;
             }
-            else if (_mode == Mode.Adjusting && _selection.Contains(point))
+            else if (_mode == Mode.Adjusting && _selection.Contains(point) && !DrawNewModifier)
             {
                 if (e.ClickCount == 2)
                 {
@@ -123,6 +194,7 @@ namespace AutoCapture.Wpf.Views
             _pressPoint = point;
             Toolbar.Visibility = Visibility.Collapsed;
             SelectionCanvas.CaptureMouse();
+            UpdateCursor(point);
             e.Handled = true;
         }
 
@@ -133,6 +205,9 @@ namespace AutoCapture.Wpf.Views
             {
                 case Mode.Idle:
                     UpdateHover(point);
+                    return;
+                case Mode.Adjusting:
+                    UpdateCursor(point);
                     return;
                 case Mode.Pressed when (point - _pressPoint).Length > DragThreshold:
                     _mode = Mode.Drawing;
@@ -174,6 +249,7 @@ namespace AutoCapture.Wpf.Views
                     _mode = Mode.Adjusting;
                     break;
             }
+            UpdateCursor(e.GetPosition(SelectionCanvas));
             Render();
         }
 
@@ -229,7 +305,10 @@ namespace AutoCapture.Wpf.Views
             else
             {
                 var physical = ScreenBounds(focus.TopLeft, focus.BottomRight, SelectionCanvas.PointToScreen);
-                SizeText.Text = $"{physical.Width:0} × {physical.Height:0}";
+                // 점선 미리보기는 아직 고른 게 아니라는 것을 글로도 알려준다.
+                SizeText.Text = _selection.IsEmpty
+                    ? $"{physical.Width:0} × {physical.Height:0} · 클릭하면 선택"
+                    : $"{physical.Width:0} × {physical.Height:0}";
                 SizeBadge.Visibility = Visibility.Visible;
                 Canvas.SetLeft(SizeBadge, focus.Left);
                 Canvas.SetTop(SizeBadge, Math.Max(0, focus.Top - 28));
@@ -245,8 +324,8 @@ namespace AutoCapture.Wpf.Views
             }
 
             HintText.Text = adjusting
-                ? "모서리를 끌어 크기 조절 · 안쪽을 끌어 이동 · Enter 확정 · Esc 취소"
-                : "창 위에서 클릭하면 창에 맞춤 · 드래그해서 직접 선택 · Esc 취소";
+                ? "안쪽 끌기: 이동 · 우클릭 또는 Ctrl+드래그: 새로 그리기 · Enter: 확정 · Esc: 취소"
+                : "창 위에서 클릭: 창에 맞춤 · 드래그: 직접 선택 · Esc: 취소";
         }
 
         private static void Place(FrameworkElement element, Rect rect)

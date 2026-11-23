@@ -71,6 +71,30 @@ public class OverlayTests
         Assert.Equal(1610, SelectionMath.ToolbarPosition(corner, new Size(300, 40), Screen, 10).X);
     }
 
+    [Theory]
+    [InlineData(true, false, true, false, "SizeAll")]   // 선택 안쪽: 이동 커서
+    [InlineData(true, false, false, false, null)]       // 선택 바깥: 십자(창 기본)
+    [InlineData(true, false, true, true, null)]         // Ctrl: 새로 그리기라 십자
+    [InlineData(false, true, false, false, "SizeAll")]  // 이동 중에는 밖으로 나가도 이동 커서
+    [InlineData(false, false, true, false, null)]       // 선택 전에는 십자
+    public void Cursor_ShowsMoveInsideSelection(bool adjusting, bool moving, bool inside, bool ctrl, string? expected)
+    {
+        var cursor = AreaSelectionWindow.CursorFor(adjusting, moving, null, inside, ctrl);
+        Assert.Equal(expected, cursor?.ToString());
+    }
+
+    [Theory]
+    [InlineData("TopLeft", "SizeNWSE")]
+    [InlineData("BottomRight", "SizeNWSE")]
+    [InlineData("TopRight", "SizeNESW")]
+    [InlineData("Bottom", "SizeNS")]
+    [InlineData("Left", "SizeWE")]
+    public void Cursor_FollowsHandleDirectionWhileResizing(string handle, string expected)
+    {
+        var cursor = AreaSelectionWindow.CursorFor(false, false, Enum.Parse<SelectionHandle>(handle), true, false);
+        Assert.Equal(expected, cursor?.ToString());
+    }
+
     [Fact]
     public void Snap_PicksDeepestLargeEnoughWindow()
     {
