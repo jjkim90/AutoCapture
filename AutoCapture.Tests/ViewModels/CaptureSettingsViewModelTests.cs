@@ -43,6 +43,55 @@ namespace AutoCapture.Tests.ViewModels
             Assert.Equal(key, missingFolder.AutoInputKey);
         }
 
+        [Fact]
+        public void NoSavedFolder_CreatesAndUsesDefaultFolder()
+        {
+            var root = Directory.CreateTempSubdirectory();
+            try
+            {
+                var fallback = Path.Combine(root.FullName, "AutoCapture");
+                var viewModel = new CaptureSettingsViewModel(_mockLogger.Object,
+                    new Wpf.Properties.Settings { SettingsKey = Guid.NewGuid().ToString("N") }, fallback);
+
+                Assert.Equal(fallback, viewModel.SaveFolderPath);
+                Assert.True(Directory.Exists(fallback));
+                Assert.True(viewModel.Validate());
+            }
+            finally
+            {
+                root.Delete(recursive: true);
+            }
+        }
+
+        [Fact]
+        public void SavedFolder_WinsOverDefaultFolder()
+        {
+            var root = Directory.CreateTempSubdirectory();
+            try
+            {
+                var chosen = Directory.CreateDirectory(Path.Combine(root.FullName, "chosen")).FullName;
+                var fallback = Path.Combine(root.FullName, "AutoCapture");
+                _viewModel.SaveFolderPath = chosen;
+
+                var reopened = new CaptureSettingsViewModel(_mockLogger.Object,
+                    new Wpf.Properties.Settings { SettingsKey = _key }, fallback);
+
+                Assert.Equal(chosen, reopened.SaveFolderPath);
+                Assert.False(Directory.Exists(fallback));
+            }
+            finally
+            {
+                root.Delete(recursive: true);
+            }
+        }
+
+        [Fact]
+        public void DefaultFolder_IsAutoCaptureUnderDocuments()
+        {
+            var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            Assert.Equal(Path.Combine(documents, "AutoCapture"), CaptureSettingsViewModel.DefaultFolder);
+        }
+
         // 설정 파일(user.config)을 함께 쓰므로 이 클래스 안에서 순서대로 실행한다.
         [Fact]
         public void EstimatedDurationText_ChangesWithCountAndInterval()

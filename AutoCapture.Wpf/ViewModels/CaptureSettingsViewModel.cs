@@ -14,6 +14,11 @@ namespace AutoCapture.Wpf.ViewModels
     {
         private readonly ILogger _logger;
         private readonly Properties.Settings _preferences;
+        private readonly string? _defaultFolder;
+
+        /// <summary>저장 위치를 고른 적이 없을 때 쓰는 기본 폴더: 문서\AutoCapture</summary>
+        public static string DefaultFolder =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "AutoCapture");
         
         [ObservableProperty]
         private CaptureSettings _settings = new();
@@ -126,12 +131,13 @@ namespace AutoCapture.Wpf.ViewModels
 
         public ICommand SelectFolderCommand { get; }
 
-        public CaptureSettingsViewModel(ILogger logger) : this(logger, Properties.Settings.Default) { }
+        public CaptureSettingsViewModel(ILogger logger) : this(logger, Properties.Settings.Default, DefaultFolder) { }
 
-        internal CaptureSettingsViewModel(ILogger logger, Properties.Settings preferences)
+        internal CaptureSettingsViewModel(ILogger logger, Properties.Settings preferences, string? defaultFolder = null)
         {
             _logger = logger;
             _preferences = preferences;
+            _defaultFolder = defaultFolder;
             SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync);
             
             // 설정 복원
@@ -141,8 +147,24 @@ namespace AutoCapture.Wpf.ViewModels
         private void LoadSettings()
         {
             var path = _preferences.LastSaveFolderPath;
-            Settings.SaveFolderPath = Directory.Exists(path) ? path : string.Empty;
+            Settings.SaveFolderPath = Directory.Exists(path) ? path : PrepareDefaultFolder();
             Settings.AutoInputKey = _preferences.LastAutoInputKey ?? "Space";
+        }
+
+        /// <summary>기본 폴더를 만들어 돌려준다. 만들 수 없으면 빈 값으로 두고 사용자가 고르게 한다.</summary>
+        private string PrepareDefaultFolder()
+        {
+            if (string.IsNullOrEmpty(_defaultFolder)) return string.Empty;
+            try
+            {
+                Directory.CreateDirectory(_defaultFolder);
+                return _defaultFolder;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger.Warning(ex, "기본 저장 폴더를 만들 수 없음: {Folder}", _defaultFolder);
+                return string.Empty;
+            }
         }
 
         private void SaveSettings()
